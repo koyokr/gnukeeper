@@ -7,6 +7,31 @@ auth_check_menu($auth, $sub_menu, 'r');
 $g5['title'] = '접근 제어 관리';
 require_once './admin.head.php';
 
+// 디버깅 정보를 담을 배열
+$debug_info = array();
+$debug_info['timestamp'] = date('Y-m-d H:i:s');
+$debug_info['php_version'] = phpversion();
+
+// MySQL 버전 가져오기 (안전하게)
+try {
+    $mysql_version_result = sql_fetch("SELECT VERSION() as version");
+    $debug_info['mysql_version'] = $mysql_version_result['version'];
+} catch (Exception $e) {
+    $debug_info['mysql_version'] = 'Unknown';
+}
+
+// 파일 존재 여부 체크
+$required_files = array(
+    'create_access_control_table.php' => false,
+    'access_control_update.php' => false,
+    'access_control_reset.php' => false
+);
+
+foreach ($required_files as $file => $exists) {
+    $required_files[$file] = file_exists('./'. $file);
+    $debug_info['files'][$file] = $required_files[$file] ? 'EXISTS' : 'MISSING';
+}
+
 // 관련 파일들 정보
 $related_files = array(
     'bbs/search.php' => array(),
@@ -28,19 +53,65 @@ $related_files = array(
     'bbs/link.php' => array()
 );
 
-// 접근 제어 테이블이 없다면 생성
-$table_exists = sql_fetch("SHOW TABLES LIKE 'g5_access_control'");
-if (!$table_exists) {
-    include_once './create_access_control_table.php';
+// 데이터베이스 테이블 존재 여부 체크
+$debug_info['database']['connection'] = 'OK';
+try {
+    $table_check = sql_fetch("SHOW TABLES LIKE 'g5_access_control'");
+    $debug_info['database']['table_exists'] = $table_check ? 'YES' : 'NO';
+    
+    if (!$table_check) {
+        $debug_info['database']['table_create_attempted'] = 'NO';
+        if (file_exists('./create_access_control_table.php')) {
+            include_once './create_access_control_table.php';
+            $debug_info['database']['table_create_attempted'] = 'YES';
+        }
+    }
+    
+    // 접근 제어 설정 불러오기 시도
+    $access_controls = array();
+    if ($table_check) {
+        $sql = "SELECT * FROM g5_access_control ORDER BY ac_category, ac_page";
+        $result = sql_query($sql, false); // 에러 출력 비활성화
+        if ($result) {
+            $debug_info['database']['query_success'] = 'YES';
+            
+            $row_count = 0;
+            while ($row = sql_fetch_array($result)) {
+                $access_controls[$row['ac_category']][] = $row;
+                $row_count++;
+            }
+            $debug_info['database']['rows_loaded'] = $row_count;
+        } else {
+            $debug_info['database']['query_success'] = 'NO - Query failed';
+            $access_controls = create_default_access_controls();
+        }
+    } else {
+        $debug_info['database']['query_success'] = 'NO - Table not found';
+        // 테이블이 없을 때 기본 데이터 생성
+        $access_controls = create_default_access_controls();
+    }
+    
+} catch (Exception $e) {
+    $debug_info['database']['error'] = $e->getMessage();
+    $access_controls = create_default_access_controls();
 }
 
-// 접근 제어 설정 불러오기
-$sql = "SELECT * FROM g5_access_control ORDER BY ac_category, ac_page";
-$result = sql_query($sql);
-
-$access_controls = array();
-while ($row = sql_fetch_array($result)) {
-    $access_controls[$row['ac_category']][] = $row;
+// 기본 접근 제어 데이터 생성 함수
+function create_default_access_controls() {
+    return array(
+        '검색 & 컨텐츠' => array(
+            array('ac_id' => 1, 'ac_page' => 'bbs/search.php', 'ac_name' => '통합 검색', 'ac_description' => '사이트 내 전체 검색 기능', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 2, 'ac_page' => 'bbs/new.php', 'ac_name' => '최신글 보기', 'ac_description' => '최신 작성된 글 목록', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 3, 'ac_page' => 'bbs/faq.php', 'ac_name' => 'FAQ 페이지', 'ac_description' => '자주 묻는 질문과 답변', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+        ),
+        '회원 관련' => array(
+            array('ac_id' => 4, 'ac_page' => 'bbs/register.php', 'ac_name' => '회원가입', 'ac_description' => '새 계정 생성', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+            array('ac_id' => 5, 'ac_page' => 'bbs/password_lost.php', 'ac_name' => '비밀번호 찾기', 'ac_description' => '분실한 비밀번호 복구', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+        ),
+        '게시판/설문 관련' => array(
+            array('ac_id' => 6, 'ac_page' => 'bbs/board.php', 'ac_name' => '게시판', 'ac_description' => '게시글 작성 및 조회', 'ac_level' => 1, 'ac_category' => '게시판/설문 관련'),
+        )
+    );
 }
 ?>
 
@@ -478,6 +549,7 @@ body {
         ✨ <strong>스마트 차단:</strong> 메인 기능을 차단하면 관련된 모든 파일들이 자동으로 함께 차단되어 우회 접근을 완전 차단합니다.
     </div>
 
+
     <form id="accessControlForm">
         <?php foreach ($access_controls as $category => $items): ?>
         <div class="access-section">
@@ -692,8 +764,82 @@ function resetToDefault() {
     });
 }
 
-// 페이지 로드 시 애니메이션
+// 브라우저 콘솔에 디버깅 정보 출력
+function logDebugInfo() {
+    const debugInfo = <?php echo json_encode($debug_info, JSON_PRETTY_PRINT); ?>;
+    
+    console.group('🛠️ 보안 플러그인 디버깅 정보');
+    console.log('⏰ 타임스탬프:', debugInfo.timestamp);
+    
+    console.group('💻 시스템 환경');
+    console.log('PHP 버전:', debugInfo.php_version);
+    console.log('MySQL 버전:', debugInfo.mysql_version);
+    console.groupEnd();
+    
+    console.group('📁 필수 파일 상태');
+    Object.entries(debugInfo.files).forEach(([file, status]) => {
+        const emoji = status === 'EXISTS' ? '✅' : '❌';
+        console.log(`${emoji} ${file}: ${status}`);
+    });
+    console.groupEnd();
+    
+    console.group('🗄️ 데이터베이스 상태');
+    console.log('연결 상태:', debugInfo.database.connection);
+    console.log('테이블 존재:', debugInfo.database.table_exists);
+    console.log('쿼리 성공:', debugInfo.database.query_success);
+    if (debugInfo.database.rows_loaded) {
+        console.log('로드된 행:', debugInfo.database.rows_loaded + '개');
+    }
+    if (debugInfo.database.error) {
+        console.error('데이터베이스 오류:', debugInfo.database.error);
+    }
+    console.groupEnd();
+    
+    console.groupEnd();
+    
+    // 경고 메시지
+    const missingFiles = Object.values(debugInfo.files).filter(status => status === 'MISSING');
+    if (missingFiles.length > 0 || debugInfo.database.table_exists === 'NO') {
+        console.warn('⚠️ 주의: 일부 기능이 제한될 수 있습니다.');
+        if (missingFiles.length > 0) {
+            console.warn('- 누락된 파일이 있습니다.');
+        }
+        if (debugInfo.database.table_exists === 'NO') {
+            console.warn('- 데이터베이스 테이블이 없습니다.');
+        }
+    }
+}
+
+// 콘솔 디버깅 토글 기능
+let consoleDebugEnabled = true;
+
+function toggleConsoleDebug() {
+    consoleDebugEnabled = !consoleDebugEnabled;
+    
+    if (consoleDebugEnabled) {
+        console.log('%c🔍 콘솔 디버깅 활성화', 'color: green; font-weight: bold');
+        logDebugInfo();
+        localStorage.setItem('accessControlConsoleDebug', 'true');
+    } else {
+        console.log('%c🔇 콘솔 디버깅 비활성화', 'color: gray; font-weight: bold');
+        localStorage.setItem('accessControlConsoleDebug', 'false');
+    }
+}
+
+// 페이지 로드 시 애니메이션 및 디버깅 정보 출력
 document.addEventListener('DOMContentLoaded', function() {
+    // 이전 설정 불러오기
+    const savedDebugSetting = localStorage.getItem('accessControlConsoleDebug');
+    if (savedDebugSetting === 'false') {
+        consoleDebugEnabled = false;
+    }
+    
+    // 디버깅 정보 콘솔 출력
+    if (consoleDebugEnabled) {
+        logDebugInfo();
+    }
+    
+    // 애니메이션
     const sections = document.querySelectorAll('.access-section');
     sections.forEach((section, index) => {
         section.style.opacity = '0';
@@ -705,6 +851,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }, index * 100);
     });
 });
+
+// 전역 함수로 등록
+window.logDebugInfo = logDebugInfo;
+window.toggleConsoleDebug = toggleConsoleDebug;
 </script>
 
 <?php
