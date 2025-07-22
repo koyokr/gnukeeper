@@ -12,10 +12,6 @@ gnuboard5를 위한 종합적인 보안 플러그인을 개발합니다. WordPre
 - 기존 gnuboard5 파일 수정 금지: `.gitignore`에서 예외 처리되지 않은 기존 파일은 절대 수정하지 않음
 - 새 파일 추가 시: 반드시 `.gitignore`에 예외 항목(`!파일경로`) 추가
 - 허용된 수정 파일: 현재 `.gitignore`에서 예외 처리된 파일들만 수정 가능
-  - `!adm/admin.menu950.php`
-  - `!adm/security_home.php` 
-  - `!adm/css/admin.css`
-  - `!adm/img/menu_shield.png`
 
 ## 주요 기능 분류
 
@@ -295,7 +291,7 @@ GeoIP 기반 차단:
 - PHP 버전 호환성 확보
 - 다른 플러그인과의 충돌 방지
 
-## 현재 개발 현황
+## 초기 개발 현황
 
 ### 구현된 파일들
 1. `adm/admin.menu950.php` - 보안설정 메뉴 정의
@@ -308,13 +304,6 @@ GeoIP 기반 차단:
    - 시스템 상태 정보 (플러그인 버전, gnuboard5 버전)
    - 최근 보안 로그 테이블
    - 반응형 대시보드 UI 구현
-
-3. `adm/css/admin.css` - 관리자 스타일시트 확장
-   - 보안설정 메뉴 아이콘 스타일 추가
-   - 기존 gnuboard5 관리자 UI와 일관된 디자인
-
-4. `adm/img/menu_shield.png` - 보안설정 메뉴 아이콘
-   - 방패 모양 아이콘으로 보안 기능을 시각적으로 표현
 
 ### 구현 상태
 

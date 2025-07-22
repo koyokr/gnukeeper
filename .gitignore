@@ -8,3 +8,7 @@
 !/adm/security_home.php
 !/adm/css/admin.css
 !/adm/img/menu_shield.png
+!/adm/security_block.php
+!/adm/security_ip_block.sql
+!/extend/security_ip_blocker.php
+!/extend/security_ip_check.php
