@@ -12,3 +12,6 @@
 !/adm/security_ip_block.sql
 !/extend/security_ip_blocker.php
 !/extend/security_ip_check.php
+!/adm/access_control_reset.php
+!/adm/access_control_update.php
+!/adm/create_access_control_table.php
