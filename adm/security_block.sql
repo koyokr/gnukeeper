@@ -21,23 +21,22 @@ CREATE TABLE `{PREFIX}security_ip_block` (
   KEY `idx_ip_range` (`sb_start_ip`,`sb_end_ip`),
   KEY `idx_status` (`sb_status`),
   KEY `idx_datetime` (`sb_datetime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='IP 차단 관리';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='IP 차단 관리';
 
 -- --------------------------------------------------------
 
 DROP TABLE IF EXISTS `{PREFIX}security_ip_log`;
 CREATE TABLE `{PREFIX}security_ip_log` (
   `sl_id` int(11) NOT NULL AUTO_INCREMENT,
-  `sl_ip` varchar(45) NOT NULL DEFAULT '',
-  `sl_block_id` int(11) DEFAULT NULL,
-  `sl_action` varchar(50) NOT NULL DEFAULT '',
-  `sl_reason` varchar(255) NOT NULL DEFAULT '',
-  `sl_datetime` datetime NOT NULL,
+  `sl_ip` varchar(45) NOT NULL DEFAULT '' COMMENT '차단된 IP',
+  `sl_datetime` datetime NOT NULL COMMENT '차단 시각',
+  `sl_url` varchar(500) DEFAULT NULL COMMENT '요청 URL',
+  `sl_user_agent` varchar(500) DEFAULT NULL COMMENT 'User Agent',
+  `sl_block_reason` varchar(255) DEFAULT NULL COMMENT '차단 사유',
   PRIMARY KEY (`sl_id`),
   KEY `idx_ip` (`sl_ip`),
-  KEY `idx_block_id` (`sl_block_id`),
   KEY `idx_datetime` (`sl_datetime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='IP 차단 로그';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='IP 차단 로그';
 
 -- --------------------------------------------------------
 
@@ -45,35 +44,28 @@ DROP TABLE IF EXISTS `{PREFIX}security_ip_whitelist`;
 CREATE TABLE `{PREFIX}security_ip_whitelist` (
   `sw_id` int(11) NOT NULL AUTO_INCREMENT,
   `sw_ip` varchar(45) NOT NULL DEFAULT '' COMMENT 'IP 주소 또는 CIDR',
-  `sw_start_ip` bigint(20) UNSIGNED NOT NULL DEFAULT 0 COMMENT '시작 IP (숫자형)',
-  `sw_end_ip` bigint(20) UNSIGNED NOT NULL DEFAULT 0 COMMENT '끝 IP (숫자형)',
-  `sw_memo` varchar(255) NOT NULL DEFAULT '' COMMENT '메모',
+  `sw_memo` varchar(255) DEFAULT NULL COMMENT '메모',
   `sw_datetime` datetime NOT NULL COMMENT '등록일시',
   PRIMARY KEY (`sw_id`),
-  KEY `idx_ip_range` (`sw_start_ip`,`sw_end_ip`),
-  KEY `idx_datetime` (`sw_datetime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='IP 화이트리스트';
+  UNIQUE KEY `unique_ip` (`sw_ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='IP 화이트리스트';
 
 -- --------------------------------------------------------
 
 DROP TABLE IF EXISTS `{PREFIX}security_config`;
 CREATE TABLE `{PREFIX}security_config` (
-  `sc_id` int(11) NOT NULL AUTO_INCREMENT,
-  `sc_key` varchar(100) NOT NULL DEFAULT '',
+  `sc_key` varchar(50) NOT NULL,
   `sc_value` text,
-  `sc_description` varchar(255) DEFAULT NULL,
-  `sc_datetime` datetime NOT NULL,
-  PRIMARY KEY (`sc_id`),
-  UNIQUE KEY `idx_key` (`sc_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='보안 설정';
+  PRIMARY KEY (`sc_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='보안 설정';
 
 -- --------------------------------------------------------
 --
 -- 기본 설정값 삽입
 --
 
-INSERT INTO `{PREFIX}security_config` (`sc_key`, `sc_value`, `sc_description`, `sc_datetime`) VALUES
-('ip_block_enabled', '1', 'IP 차단 기능 활성화', NOW()),
-('login_attempt_limit', '5', '로그인 시도 제한 횟수', NOW()),
-('login_attempt_window', '300', '로그인 시도 제한 시간(초)', NOW()),
-('auto_block_duration', '3600', '자동 차단 기간(초)', NOW());
+INSERT INTO `{PREFIX}security_config` (`sc_key`, `sc_value`) VALUES
+('ip_block_enabled', '1'),
+('login_attempt_limit', '5'),
+('login_attempt_window', '300'),
+('auto_block_duration', '3600');
