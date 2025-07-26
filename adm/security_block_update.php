@@ -41,7 +41,7 @@ function create_tables() {
     return true;
 }
 
-function set_config($key, $value) {
+function gk_set_config($key, $value) {
     $sql = "INSERT INTO " . G5_TABLE_PREFIX . "security_config (sc_key, sc_value) VALUES ('" . sql_escape_string($key) . "', '" . sql_escape_string($value) . "')
             ON DUPLICATE KEY UPDATE sc_value = '" . sql_escape_string($value) . "'";
     return sql_query($sql);
@@ -130,7 +130,7 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
         case 'save_config':
 
             $ip_block_enabled = $_POST['ip_block_enabled'] ?? '0';
-            set_config('ip_block_enabled', $ip_block_enabled);
+            gk_set_config('ip_block_enabled', $ip_block_enabled);
 
             // gnuboard5 기본 IP 차단 기능 반대로 설정
             global $g5;
@@ -155,6 +155,35 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
 
             // IP 주소 정규화 (/32 CIDR을 단일 IP로 변환)
             $ip = normalize_ip($ip);
+
+            // 현재 접속자 IP와 비교 경고
+            if ($ip == $current_admin_ip) {
+                alert('경고: 현재 접속 중인 관리자 IP(' . $current_admin_ip . ')를 예외 IP로 추가하려고 합니다. 이미 관리자이므로 불필요할 수 있습니다.');
+            }
+
+            // 광범위한 CIDR 경고 (CIDR 표기법인 경우)
+            if (strpos($ip, '/') !== false) {
+                if (is_valid_cidr($ip)) {
+                    list($network, $prefix_length) = explode('/', $ip);
+                    $prefix_length = (int)$prefix_length;
+                    
+                    // /16 이하 (65536개 이상 IP) 또는 /8 이하 (16777216개 이상 IP) 경고
+                    if ($prefix_length <= 16) {
+                        $ip_count = pow(2, 32 - $prefix_length);
+                        alert('경고: 매우 광범위한 IP 대역입니다. 이 CIDR은 ' . number_format($ip_count) . '개의 IP를 포함합니다. 정말 추가하시겠습니까?');
+                        break;
+                    }
+                } else {
+                    alert('올바른 CIDR 형식이 아닙니다.');
+                    break;
+                }
+            } else {
+                // 단일 IP 유효성 검사
+                if (!is_valid_ip($ip)) {
+                    alert('올바른 IP 주소가 아닙니다.');
+                    break;
+                }
+            }
 
             alert(add_whitelist_ip($ip, $memo) ? '예외 IP에 추가되었습니다.' : '예외 IP 추가에 실패했습니다.');
             break;
