@@ -34,23 +34,20 @@ foreach ($required_files as $file => $exists) {
 
 // 관련 파일들 정보
 $related_files = array(
-    'bbs/search.php' => array(),
-    'bbs/new.php' => array('new_delete.php'),
-    'bbs/faq.php' => array(),
-    'bbs/content.php' => array(),
-    'bbs/current_connect.php' => array(),
-    'bbs/group.php' => array(),
-    'bbs/register.php' => array('register_form.php', 'register_form_update.php', 'register_result.php', 'register_email.php'),
-    'bbs/password_lost.php' => array('password_lost2.php', 'password_reset.php', 'password_reset_update.php'),
-    'bbs/memo.php' => array('memo_delete.php', 'memo_form.php', 'memo_form_update.php', 'memo_view.php'),
-    'bbs/profile.php' => array('member_confirm.php', 'member_leave.php', 'point.php'),
-    'bbs/board.php' => array('list.php', 'view.php', 'write.php', 'write_update.php', 'delete.php', 'good.php', 'move.php'),
-    'bbs/download.php' => array('view_image.php'),
-    'bbs/scrap.php' => array('scrap_delete.php', 'scrap_popin.php', 'scrap_popin_update.php'),
-    'bbs/poll_result.php' => array('poll_update.php', 'poll_etc_update.php'),
-    'bbs/qalist.php' => array('qaview.php', 'qawrite.php', 'qawrite_update.php', 'qadelete.php'),
-    'bbs/qadownload.php' => array(),
-    'bbs/link.php' => array()
+    'search.php' => array(),
+    'new.php' => array('new_delete.php'),
+    'faq.php' => array(),
+    'content.php' => array(),
+    'current_connect.php' => array(),
+    'group.php' => array(),
+    'register.php' => array('register_form.php', 'register_form_update.php', 'register_result.php', 'register_email.php'),
+    'password_lost.php' => array('password_lost2.php', 'password_reset.php', 'password_reset_update.php'),
+    'memo.php' => array('memo_delete.php', 'memo_form.php', 'memo_form_update.php', 'memo_view.php'),
+    'profile.php' => array('member_confirm.php', 'member_leave.php', 'point.php'),
+    'board.php' => array('list.php', 'view.php', 'write.php', 'write_update.php', 'delete.php', 'good.php', 'move.php', 'download.php', 'view_image.php', 'link.php'),
+    'scrap.php' => array('scrap_delete.php', 'scrap_popin.php', 'scrap_popin_update.php'),
+    'poll_result.php' => array('poll_update.php', 'poll_etc_update.php'),
+    'qalist.php' => array('qaview.php', 'qawrite.php', 'qawrite_update.php', 'qadelete.php', 'qadownload.php')
 );
 
 // 데이터베이스 테이블 존재 여부 체크
@@ -70,6 +67,9 @@ try {
     // 접근 제어 설정 불러오기 시도
     $access_controls = array();
     if ($table_check) {
+        // qadownload.php, download.php, link.php 독립 항목 제거 (각각 qalist.php, board.php에 포함되므로)
+        sql_query("DELETE FROM g5_access_control WHERE ac_page IN ('qadownload.php', 'bbs/qadownload.php', 'download.php', 'bbs/download.php', 'link.php', 'bbs/link.php')", false);
+        
         $sql = "SELECT * FROM g5_access_control ORDER BY ac_category, ac_page";
         $result = sql_query($sql, false); // 에러 출력 비활성화
         if ($result) {
@@ -77,6 +77,8 @@ try {
             
             $row_count = 0;
             while ($row = sql_fetch_array($result)) {
+                // bbs/ 접두사 제거
+                $row['ac_page'] = str_replace('bbs/', '', $row['ac_page']);
                 $access_controls[$row['ac_category']][] = $row;
                 $row_count++;
             }
@@ -100,16 +102,16 @@ try {
 function create_default_access_controls() {
     return array(
         '검색 & 컨텐츠' => array(
-            array('ac_id' => 1, 'ac_page' => 'bbs/search.php', 'ac_name' => '통합 검색', 'ac_description' => '사이트 내 전체 검색 기능', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
-            array('ac_id' => 2, 'ac_page' => 'bbs/new.php', 'ac_name' => '최신글 보기', 'ac_description' => '최신 작성된 글 목록', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
-            array('ac_id' => 3, 'ac_page' => 'bbs/faq.php', 'ac_name' => 'FAQ 페이지', 'ac_description' => '자주 묻는 질문과 답변', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 1, 'ac_page' => 'search.php', 'ac_name' => '통합 검색', 'ac_description' => '사이트 내 전체 검색 기능', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 2, 'ac_page' => 'new.php', 'ac_name' => '최신글 보기', 'ac_description' => '최신 작성된 글 목록', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 3, 'ac_page' => 'faq.php', 'ac_name' => 'FAQ 페이지', 'ac_description' => '자주 묻는 질문과 답변', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
         ),
         '회원 관련' => array(
-            array('ac_id' => 4, 'ac_page' => 'bbs/register.php', 'ac_name' => '회원가입', 'ac_description' => '새 계정 생성', 'ac_level' => 1, 'ac_category' => '회원 관련'),
-            array('ac_id' => 5, 'ac_page' => 'bbs/password_lost.php', 'ac_name' => '비밀번호 찾기', 'ac_description' => '분실한 비밀번호 복구', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+            array('ac_id' => 4, 'ac_page' => 'register.php', 'ac_name' => '회원가입', 'ac_description' => '새 계정 생성', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+            array('ac_id' => 5, 'ac_page' => 'password_lost.php', 'ac_name' => '비밀번호 찾기', 'ac_description' => '분실한 비밀번호 복구', 'ac_level' => 1, 'ac_category' => '회원 관련'),
         ),
         '게시판/설문 관련' => array(
-            array('ac_id' => 6, 'ac_page' => 'bbs/board.php', 'ac_name' => '게시판', 'ac_description' => '게시글 작성 및 조회', 'ac_level' => 1, 'ac_category' => '게시판/설문 관련'),
+            array('ac_id' => 6, 'ac_page' => 'board.php', 'ac_name' => '게시판', 'ac_description' => '게시글 작성 및 조회', 'ac_level' => 1, 'ac_category' => '게시판/설문 관련'),
         )
     );
 }
@@ -152,29 +154,29 @@ body {
 }
 
 .access-section {
-    margin-bottom: 40px;
+    margin-bottom: 30px;
     background: #ffffff;
-    border-radius: 16px;
+    border-radius: 5px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    border: 1px solid #e2e8f0;
-    transition: all 0.3s ease;
-}
-
-.access-section:hover {
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
+    border: 1px solid #ddd;
 }
 
 .section-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 24px 32px;
-    color: white;
-    font-weight: 700;
-    font-size: 20px;
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.section-header:hover {
+    background: #e9ecef;
 }
 
 .section-content {
@@ -207,25 +209,40 @@ body {
     font-weight: 700;
     color: #2d3748;
     margin-bottom: 4px;
-    font-size: 22px;
+    font-size: 18px;
 }
 
 .item-path {
-    font-size: 16px;
-    color: #718096;
+    font-size: 11px;
+    color: #ed8936;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    margin-bottom: 4px;
-    background: #f7fafc;
-    padding: 3px 6px;
-    border-radius: 4px;
-    display: inline-block;
+    margin: 8px 0;
+    background: #fef5e7;
+    padding: 6px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    border: 1px solid #f6ad55;
+}
+
+.item-path:hover {
+    background: #fed7a7;
+    color: #c05621;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(237, 137, 54, 0.3);
 }
 
 .item-description {
-    font-size: 15px;
-    color: #a0aec0;
-    margin-bottom: 6px;
-    line-height: 1.4;
+    font-size: 12px;
+    color: #718096;
+    margin: 6px 0 12px 0;
+    line-height: 1.5;
+    font-weight: 500;
 }
 
 .related-files {
@@ -233,8 +250,8 @@ body {
 }
 
 .related-label {
-    font-size: 13px;
-    color: #e53e3e;
+    font-size: 11px;
+    color: #a0aec0;
     font-weight: 600;
     margin-bottom: 4px;
     display: block;
@@ -247,13 +264,24 @@ body {
 }
 
 .related-file {
-    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
-    color: #c53030;
-    padding: 3px 8px;
+    background: #f7fafc;
+    color: #a0aec0;
+    padding: 4px 10px;
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 500;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    border: 1px solid #e2e8f0;
+}
+
+.related-more {
+    background: #edf2f7;
+    color: #718096;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    font-style: italic;
 }
 
 .access-controls {
@@ -265,9 +293,9 @@ body {
 }
 
 .status-badge {
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 18px;
+    font-size: 12px;
     font-weight: 700;
     color: white;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
@@ -466,7 +494,7 @@ body {
     justify-content: space-between;
     width: 120px;
     margin-top: 8px;
-    font-size: 11px;
+    font-size: 9px;
     color: #718096;
     font-weight: 600;
 }
@@ -493,26 +521,23 @@ body {
 }
 
 .reset-button {
-    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
-    border: 2px solid #fc8181;
-    color: #c53030;
-    padding: 12px 24px;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 700;
+    background: #dc3545;
+    border: 1px solid #dc3545;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     gap: 8px;
-    box-shadow: 0 4px 12px rgba(252, 129, 129, 0.3);
 }
 
 .reset-button:hover {
-    background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(252, 129, 129, 0.4);
+    background: #c82333;
+    border-color: #c82333;
 }
 
 .reset-button:active {
@@ -553,7 +578,7 @@ body {
     <form id="accessControlForm">
         <?php foreach ($access_controls as $category => $items): ?>
         <div class="access-section">
-            <div class="section-header">
+            <div class="section-header" onclick="toggleSection('<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>')" style="cursor: pointer;">
                 <?php 
                 $icons = array(
                     '검색 & 컨텐츠' => '🔍',
@@ -561,21 +586,27 @@ body {
                     '게시판/설문 관련' => '📝'
                 );
                 echo $icons[$category] ?? '📁';
-                ?> <?php echo $category; ?>
+                ?> <?php echo $category; ?> <span id="<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>_toggle" style="float: right;">▼</span>
             </div>
-            <div class="section-content">
+            <div class="section-content" id="<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>_section">
                 <?php foreach ($items as $item): ?>
                 <div class="access-item">
                     <div class="item-info">
                         <div class="item-name"><?php echo $item['ac_name']; ?></div>
-                        <div class="item-path"><?php echo $item['ac_page']; ?></div>
                         <div class="item-description"><?php echo $item['ac_description']; ?></div>
+                        <a href="<?php echo G5_BBS_URL; ?>/<?php echo $item['ac_page']; ?>" class="item-path" target="_blank">
+                            🔗 <?php echo $item['ac_page']; ?>
+                        </a>
                         
-                        <?php if (isset($related_files[$item['ac_page']]) && !empty($related_files[$item['ac_page']])): ?>
+                        <?php 
+                        $current_page = $item['ac_page'];
+                        $has_related_files = isset($related_files[$current_page]) && !empty($related_files[$current_page]);
+                        if ($has_related_files): 
+                        ?>
                         <div class="related-files">
-                            <span class="related-label">🔗 함께 차단되는 관련 파일들:</span>
+                            <span class="related-label">🔒 함께 차단되는 관련 파일들</span>
                             <div class="related-list">
-                                <?php foreach ($related_files[$item['ac_page']] as $related): ?>
+                                <?php foreach ($related_files[$current_page] as $related): ?>
                                 <span class="related-file"><?php echo $related; ?></span>
                                 <?php endforeach; ?>
                             </div>
@@ -592,12 +623,12 @@ body {
                             ?>" id="status-<?php echo $item['ac_id']; ?>">
                                 <?php 
                                 echo $item['ac_level'] == 10 ? '관리자만' : 
-                                    ($item['ac_level'] == 2 ? '회원 이상' : 
+                                    ($item['ac_level'] == 2 ? '회원 이상만' : 
                                     ($item['ac_level'] == 1 ? '모든 사용자' : '접근 차단')); 
                                 ?>
                             </span>
                             
-                            <?php if (in_array($item['ac_page'], ['bbs/register.php', 'bbs/password_lost.php'])): ?>
+                            <?php if (in_array($item['ac_page'], ['register.php', 'password_lost.php'])): ?>
                                 <!-- ON/OFF 스위치 -->
                                 <div class="simple-switch <?php echo $item['ac_level'] > 0 ? 'on' : ''; ?>" 
                                      onclick="toggleSimpleSwitch(<?php echo $item['ac_id']; ?>)"
@@ -609,7 +640,7 @@ body {
                                     <span>허용</span>
                                 </div>
                                 
-                            <?php elseif (in_array($item['ac_page'], ['bbs/memo.php', 'bbs/profile.php', 'bbs/point.php', 'bbs/scrap.php', 'bbs/qalist.php', 'bbs/qadownload.php'])): ?>
+                            <?php elseif (in_array($item['ac_page'], ['memo.php', 'profile.php', 'point.php', 'scrap.php', 'qalist.php'])): ?>
                                 <!-- 관리자/회원 스위치 -->
                                 <div class="dual-switch <?php echo $item['ac_level'] == 10 ? 'admin' : ''; ?>" 
                                      onclick="toggleDualSwitch(<?php echo $item['ac_id']; ?>)"
@@ -631,7 +662,7 @@ body {
                                     <div class="triple-switch-handle"></div>
                                 </div>
                                 <div class="level-labels">
-                                    <span>방문자</span>
+                                    <span>비회원</span>
                                     <span>회원</span>
                                     <span>관리자</span>
                                 </div>
@@ -707,7 +738,7 @@ function updateStatus(id, level) {
     
     statusElement.textContent = 
         level == 10 ? '관리자만' : 
-        level == 2 ? '회원 이상' : 
+        level == 2 ? '회원 이상만' : 
         level == 1 ? '모든 사용자' : '접근 차단';
 }
 
@@ -852,9 +883,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// 섹션 토글 함수
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId + '_section');
+    const toggle = document.getElementById(sectionId + '_toggle');
+    
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        toggle.textContent = '▼';
+    } else {
+        section.style.display = 'none';
+        toggle.textContent = '▶';
+    }
+}
+
 // 전역 함수로 등록
 window.logDebugInfo = logDebugInfo;
 window.toggleConsoleDebug = toggleConsoleDebug;
+window.toggleSection = toggleSection;
 </script>
 
 <?php
