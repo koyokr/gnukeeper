@@ -3,17 +3,36 @@
 !/CLAUDE.md
 !/README.md
 !/.gitignore
+
+# HOME
+!/adm/admin.menu950.php
+!/adm/css/admin.css
+!/adm/img/menu_shield.png
+!/adm/security_home.php
+
+# 접근제어
 !/adm/access_control.php
 !/adm/access_control_reset.php
 !/adm/access_control_update.php
-!/adm/admin.menu950.php
 !/adm/create_access_control_table.php
-!/adm/css/admin.css
-!/adm/img/menu_shield.png
+
+# 차단관리
 !/adm/security_block.php
-!/adm/security_home.php
+!/adm/security_block_delete.php
+!/adm/security_block_update.php
+!/adm/security_block.sql
 !/adm/security_ip_block.sql
+
+# 정책관리
 !/adm/security_extension.php
+
+# 스팸관리
+!/adm/security_spam.php
+!/adm/security_spam_update.php
+
+# EXTEND
 !/extend/security_ip_blocker.php
 !/extend/security_ip_check.php
 !/extend/register_access_control.php
+!/extend/security_block_ip.extend.php
+!/extend/security_detect_spam.extend.php
