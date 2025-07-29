@@ -70,6 +70,28 @@ try {
         // qadownload.php, download.php, link.php 독립 항목 제거 (각각 qalist.php, board.php에 포함되므로)
         sql_query("DELETE FROM g5_access_control WHERE ac_page IN ('qadownload.php', 'bbs/qadownload.php', 'download.php', 'bbs/download.php', 'link.php', 'bbs/link.php')", false);
         
+        // 기존 설명 업데이트
+        $description_updates = array(
+            'search.php' => '사이트 내 모든 게시글과 댓글을 검색할 수 있는 통합 검색 기능입니다. 키워드로 원하는 정보를 빠르게 찾을 수 있습니다.',
+            'new.php' => '사이트 전체에서 최근에 작성된 게시글과 댓글을 시간순으로 확인할 수 있는 페이지입니다.',
+            'faq.php' => '사용자들이 자주 묻는 질문과 그에 대한 답변을 제공하는 고객지원 페이지입니다.',
+            'content.php' => '서비스 소개, 개인정보처리방침, 이용약관 같은 정적 컨텐츠를 보여주는 페이지입니다.',
+            'current_connect.php' => '현재 사이트에 접속해 있는 사용자 수와 접속자 정보를 실시간으로 확인할 수 있는 페이지입니다.',
+            'group.php' => '게시판 그룹별로 분류된 게시판 목록을 확인하고 접근할 수 있는 페이지입니다.',
+            'register.php' => '새로운 계정을 생성하여 사이트 회원으로 가입할 수 있는 페이지입니다. 개인정보 입력 및 약관 동의가 포함됩니다.',
+            'password_lost.php' => '로그인 비밀번호를 분실했을 때 이메일이나 휴대폰을 통해 비밀번호를 재설정할 수 있는 페이지입니다.',
+            'memo.php' => '다른 회원들과 개인적으로 메시지를 주고받을 수 있는 쪽지 기능 페이지입니다.',
+            'profile.php' => '회원의 개인정보, 작성글, 댓글 등을 확인하고 수정할 수 있는 마이페이지입니다.',
+            'board.php' => '게시글을 작성하고 조회하며 댓글을 달 수 있는 메인 게시판 기능입니다. 파일 첨부 및 다운로드도 포함됩니다.',
+            'scrap.php' => '관심 있는 게시글을 개인 스크랩북에 저장하고 관리할 수 있는 기능입니다.',
+            'poll_result.php' => '사이트에서 진행하는 설문조사나 투표에 참여하고 결과를 확인할 수 있는 페이지입니다.',
+            'qalist.php' => '질문과 답변 형태의 1:1 문의나 고객지원을 위한 전용 게시판입니다.'
+        );
+        
+        foreach ($description_updates as $page => $description) {
+            sql_query("UPDATE g5_access_control SET ac_description = '" . sql_escape_string($description) . "' WHERE ac_page = '{$page}' OR ac_page = 'bbs/{$page}'", false);
+        }
+        
         $sql = "SELECT * FROM g5_access_control ORDER BY ac_category, ac_page";
         $result = sql_query($sql, false); // 에러 출력 비활성화
         if ($result) {
@@ -102,16 +124,24 @@ try {
 function create_default_access_controls() {
     return array(
         '검색 & 컨텐츠' => array(
-            array('ac_id' => 1, 'ac_page' => 'search.php', 'ac_name' => '통합 검색', 'ac_description' => '사이트 내 전체 검색 기능', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
-            array('ac_id' => 2, 'ac_page' => 'new.php', 'ac_name' => '최신글 보기', 'ac_description' => '최신 작성된 글 목록', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
-            array('ac_id' => 3, 'ac_page' => 'faq.php', 'ac_name' => 'FAQ 페이지', 'ac_description' => '자주 묻는 질문과 답변', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 1, 'ac_page' => 'search.php', 'ac_name' => '통합 검색', 'ac_description' => '사이트 내 모든 게시글과 댓글을 검색할 수 있는 통합 검색 기능입니다. 키워드로 원하는 정보를 빠르게 찾을 수 있습니다.', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 2, 'ac_page' => 'new.php', 'ac_name' => '최신글 보기', 'ac_description' => '사이트 전체에서 최근에 작성된 게시글과 댓글을 시간순으로 확인할 수 있는 페이지입니다.', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 3, 'ac_page' => 'faq.php', 'ac_name' => 'FAQ 페이지', 'ac_description' => '사용자들이 자주 묻는 질문과 그에 대한 답변을 제공하는 고객지원 페이지입니다.', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 7, 'ac_page' => 'content.php', 'ac_name' => '컨텐츠 보기', 'ac_description' => '서비스 소개, 개인정보처리방침, 이용약관 같은 정적 컨텐츠를 보여주는 페이지입니다.', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 8, 'ac_page' => 'current_connect.php', 'ac_name' => '현재 접속자', 'ac_description' => '현재 사이트에 접속해 있는 사용자 수와 접속자 정보를 실시간으로 확인할 수 있는 페이지입니다.', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
+            array('ac_id' => 9, 'ac_page' => 'group.php', 'ac_name' => '그룹 페이지', 'ac_description' => '게시판 그룹별로 분류된 게시판 목록을 확인하고 접근할 수 있는 페이지입니다.', 'ac_level' => 1, 'ac_category' => '검색 & 컨텐츠'),
         ),
         '회원 관련' => array(
-            array('ac_id' => 4, 'ac_page' => 'register.php', 'ac_name' => '회원가입', 'ac_description' => '새 계정 생성', 'ac_level' => 1, 'ac_category' => '회원 관련'),
-            array('ac_id' => 5, 'ac_page' => 'password_lost.php', 'ac_name' => '비밀번호 찾기', 'ac_description' => '분실한 비밀번호 복구', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+            array('ac_id' => 4, 'ac_page' => 'register.php', 'ac_name' => '회원가입', 'ac_description' => '새로운 계정을 생성하여 사이트 회원으로 가입할 수 있는 페이지입니다. 개인정보 입력 및 약관 동의가 포함됩니다.', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+            array('ac_id' => 5, 'ac_page' => 'password_lost.php', 'ac_name' => '비밀번호 찾기', 'ac_description' => '로그인 비밀번호를 분실했을 때 이메일이나 휴대폰을 통해 비밀번호를 재설정할 수 있는 페이지입니다.', 'ac_level' => 1, 'ac_category' => '회원 관련'),
+            array('ac_id' => 10, 'ac_page' => 'memo.php', 'ac_name' => '쪽지함', 'ac_description' => '다른 회원들과 개인적으로 메시지를 주고받을 수 있는 쪽지 기능 페이지입니다.', 'ac_level' => 2, 'ac_category' => '회원 관련'),
+            array('ac_id' => 11, 'ac_page' => 'profile.php', 'ac_name' => '회원 프로필', 'ac_description' => '회원의 개인정보, 작성글, 댓글 등을 확인하고 수정할 수 있는 마이페이지입니다.', 'ac_level' => 2, 'ac_category' => '회원 관련'),
         ),
         '게시판/설문 관련' => array(
-            array('ac_id' => 6, 'ac_page' => 'board.php', 'ac_name' => '게시판', 'ac_description' => '게시글 작성 및 조회', 'ac_level' => 1, 'ac_category' => '게시판/설문 관련'),
+            array('ac_id' => 6, 'ac_page' => 'board.php', 'ac_name' => '게시판', 'ac_description' => '게시글을 작성하고 조회하며 댓글을 달 수 있는 메인 게시판 기능입니다. 파일 첨부 및 다운로드도 포함됩니다.', 'ac_level' => 1, 'ac_category' => '게시판/설문 관련'),
+            array('ac_id' => 12, 'ac_page' => 'scrap.php', 'ac_name' => '스크랩', 'ac_description' => '관심 있는 게시글을 개인 스크랩북에 저장하고 관리할 수 있는 기능입니다.', 'ac_level' => 2, 'ac_category' => '게시판/설문 관련'),
+            array('ac_id' => 13, 'ac_page' => 'poll_result.php', 'ac_name' => '투표/설문', 'ac_description' => '사이트에서 진행하는 설문조사나 투표에 참여하고 결과를 확인할 수 있는 페이지입니다.', 'ac_level' => 1, 'ac_category' => '게시판/설문 관련'),
+            array('ac_id' => 14, 'ac_page' => 'qalist.php', 'ac_name' => 'Q&A 게시판', 'ac_description' => '질문과 답변 형태의 1:1 문의나 고객지원을 위한 전용 게시판입니다.', 'ac_level' => 2, 'ac_category' => '게시판/설문 관련'),
         )
     );
 }
@@ -170,7 +200,7 @@ body {
     color: #333;
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
     cursor: pointer;
     transition: background-color 0.3s ease;
 }
@@ -180,6 +210,18 @@ body {
 }
 
 .section-content {
+    padding: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), 
+                opacity 0.3s ease,
+                padding 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    max-height: 0;
+    opacity: 0;
+}
+
+.section-content.expanded {
+    max-height: 2000px;
+    opacity: 1;
     padding: 0;
 }
 
@@ -223,7 +265,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-weight: 600;
+    font-weight: 400;
     cursor: pointer;
     transition: all 0.3s ease;
     text-decoration: none;
@@ -579,14 +621,17 @@ body {
         <?php foreach ($access_controls as $category => $items): ?>
         <div class="access-section">
             <div class="section-header" onclick="toggleSection('<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>')" style="cursor: pointer;">
-                <?php 
-                $icons = array(
-                    '검색 & 컨텐츠' => '🔍',
-                    '회원 관련' => '👤', 
-                    '게시판/설문 관련' => '📝'
-                );
-                echo $icons[$category] ?? '📁';
-                ?> <?php echo $category; ?> <span id="<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>_toggle" style="float: right;">▼</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <?php 
+                    $icons = array(
+                        '검색 & 컨텐츠' => '🔍',
+                        '회원 관련' => '👤', 
+                        '게시판/설문 관련' => '📝'
+                    );
+                    echo $icons[$category] ?? '📁';
+                    ?> <?php echo $category; ?>
+                </div>
+                <span id="<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>_toggle" style="transition: transform 0.3s ease;">▶</span>
             </div>
             <div class="section-content" id="<?php echo str_replace(array(' ', '&', '/'), array('_', '_', '_'), $category); ?>_section">
                 <?php foreach ($items as $item): ?>
@@ -879,6 +924,17 @@ document.addEventListener('DOMContentLoaded', function() {
             section.style.transition = 'all 0.5s ease';
             section.style.opacity = '1';
             section.style.transform = 'translateY(0)';
+            
+            // 각 섹션을 순차적으로 펼치기
+            setTimeout(() => {
+                const sectionContent = section.querySelector('.section-content');
+                const toggle = section.querySelector('[id$="_toggle"]');
+                if (sectionContent && toggle) {
+                    sectionContent.classList.add('expanded');
+                    toggle.textContent = '▼';
+                    toggle.style.transform = 'rotate(0deg)';
+                }
+            }, 500);
         }, index * 100);
     });
 });
@@ -888,12 +944,16 @@ function toggleSection(sectionId) {
     const section = document.getElementById(sectionId + '_section');
     const toggle = document.getElementById(sectionId + '_toggle');
     
-    if (section.style.display === 'none') {
-        section.style.display = 'block';
-        toggle.textContent = '▼';
-    } else {
-        section.style.display = 'none';
+    if (section.classList.contains('expanded')) {
+        // 접기
+        section.classList.remove('expanded');
         toggle.textContent = '▶';
+        toggle.style.transform = 'rotate(-90deg)';
+    } else {
+        // 펼치기
+        section.classList.add('expanded');
+        toggle.textContent = '▼';
+        toggle.style.transform = 'rotate(0deg)';
     }
 }
 

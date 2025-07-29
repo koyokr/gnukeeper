@@ -188,6 +188,176 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
         }
         exit;
     }
+    
+    if ($_POST['action'] == 'reset_member_permissions') {
+        if (!isset($_POST['selected_users']) || !is_array($_POST['selected_users'])) {
+            echo json_encode(['success' => false, 'message' => '선택된 사용자가 없습니다.']);
+            exit;
+        }
+        
+        $selected_users = $_POST['selected_users'];
+        $super_admin_id = 'admin'; // 최고관리자 ID 보호
+        $updated_count = 0;
+        
+        // 기본 회원가입 권한 레벨 가져오기
+        $config_sql = "SELECT cf_register_level FROM {$g5['config_table']}";
+        $config_result = sql_fetch($config_sql);
+        $default_member_level = isset($config_result['cf_register_level']) ? $config_result['cf_register_level'] : 2;
+        
+        foreach ($selected_users as $mb_id) {
+            $mb_id = clean_xss_tags(trim($mb_id));
+            if ($mb_id && $mb_id != $super_admin_id) {
+                $update_sql = "UPDATE {$g5['member_table']} 
+                              SET mb_level = '{$default_member_level}' 
+                              WHERE mb_id = '" . sql_escape_string($mb_id) . "' AND mb_id != '{$super_admin_id}'";
+                if (sql_query($update_sql)) {
+                    $updated_count++;
+                }
+            }
+        }
+        
+        if ($updated_count > 0) {
+            echo json_encode(['success' => true, 'message' => $updated_count . "명의 사용자 권한을 기본 권한(레벨 {$default_member_level})으로 변경했습니다."]);
+        } else {
+            echo json_encode(['success' => false, 'message' => '권한 변경에 실패했습니다.']);
+        }
+        exit;
+    }
+    
+    // 업로드 용량 예외 처리
+    if ($_POST['action'] == 'toggle_upload_exception') {
+        $bo_table = trim($_POST['bo_table']);
+        
+        if (empty($bo_table)) {
+            echo json_encode(['success' => false, 'message' => '잘못된 요청입니다.']);
+            exit;
+        }
+        
+        // 현재 예외 목록 가져오기 (cf_2 필드 사용)
+        $config_sql = "SELECT cf_2 FROM {$g5['config_table']}";
+        $config_result = sql_fetch($config_sql);
+        $current_exceptions = isset($config_result['cf_2']) ? $config_result['cf_2'] : '';
+        
+        $exception_list = array();
+        if (!empty($current_exceptions)) {
+            $exception_list = explode('|', $current_exceptions);
+            $exception_list = array_map('trim', $exception_list);
+            $exception_list = array_filter($exception_list);
+        }
+        
+        // 예외 목록에서 추가/제거
+        $is_exception = in_array($bo_table, $exception_list);
+        if ($is_exception) {
+            // 제거
+            $exception_list = array_filter($exception_list, function($item) use ($bo_table) {
+                return $item !== $bo_table;
+            });
+            $message = '업로드 용량 예외 처리가 해제되었습니다.';
+        } else {
+            // 추가
+            $exception_list[] = $bo_table;
+            $message = '업로드 용량이 예외 처리되었습니다.';
+        }
+        
+        // 저장
+        $new_exceptions = implode('|', $exception_list);
+        $update_sql = "UPDATE {$g5['config_table']} SET cf_2 = '" . sql_escape_string($new_exceptions) . "'";
+        
+        if (sql_query($update_sql)) {
+            echo json_encode(['success' => true, 'message' => $message, 'is_exception' => !$is_exception]);
+        } else {
+            echo json_encode(['success' => false, 'message' => '예외 처리 설정에 실패했습니다.']);
+        }
+        exit;
+    }
+    
+    // 캡차 예외 처리
+    if ($_POST['action'] == 'toggle_captcha_exception') {
+        $bo_table = trim($_POST['bo_table']);
+        
+        if (empty($bo_table)) {
+            echo json_encode(['success' => false, 'message' => '잘못된 요청입니다.']);
+            exit;
+        }
+        
+        // 현재 예외 목록 가져오기 (cf_4 필드 사용)
+        $config_sql = "SELECT cf_4 FROM {$g5['config_table']}";
+        $config_result = sql_fetch($config_sql);
+        $current_exceptions = isset($config_result['cf_4']) ? $config_result['cf_4'] : '';
+        
+        $exception_list = array();
+        if (!empty($current_exceptions)) {
+            $exception_list = explode('|', $current_exceptions);
+            $exception_list = array_map('trim', $exception_list);
+            $exception_list = array_filter($exception_list);
+        }
+        
+        // 예외 목록에서 추가/제거
+        $is_exception = in_array($bo_table, $exception_list);
+        if ($is_exception) {
+            // 제거
+            $exception_list = array_filter($exception_list, function($item) use ($bo_table) {
+                return $item !== $bo_table;
+            });
+            $message = '캡챠 예외 처리가 해제되었습니다.';
+        } else {
+            // 추가
+            $exception_list[] = $bo_table;
+            $message = '캡챠가 예외 처리되었습니다.';
+        }
+        
+        // 저장
+        $new_exceptions = implode('|', $exception_list);
+        $update_sql = "UPDATE {$g5['config_table']} SET cf_4 = '" . sql_escape_string($new_exceptions) . "'";
+        
+        if (sql_query($update_sql)) {
+            echo json_encode(['success' => true, 'message' => $message, 'is_exception' => !$is_exception]);
+        } else {
+            echo json_encode(['success' => false, 'message' => '예외 처리 설정에 실패했습니다.']);
+        }
+        exit;
+    }
+    
+    // 업로드 크기를 10MB로 제한
+    if ($_POST['action'] == 'limit_upload_10mb') {
+        $bo_table = trim($_POST['bo_table']);
+        
+        if (empty($bo_table)) {
+            echo json_encode(['success' => false, 'message' => '잘못된 요청입니다.']);
+            exit;
+        }
+        
+        // 10MB = 10 * 1024 * 1024 bytes
+        $limit_10mb = 10 * 1024 * 1024;
+        
+        $update_sql = "UPDATE {$g5['board_table']} SET bo_upload_size = {$limit_10mb} WHERE bo_table = '" . sql_escape_string($bo_table) . "'";
+        
+        if (sql_query($update_sql)) {
+            echo json_encode(['success' => true, 'message' => '업로드 크기가 10MB로 제한되었습니다.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => '업로드 크기 제한에 실패했습니다.']);
+        }
+        exit;
+    }
+    
+    // 게시판에 캡챠 적용
+    if ($_POST['action'] == 'apply_captcha') {
+        $bo_table = trim($_POST['bo_table']);
+        
+        if (empty($bo_table)) {
+            echo json_encode(['success' => false, 'message' => '잘못된 요청입니다.']);
+            exit;
+        }
+        
+        $update_sql = "UPDATE {$g5['board_table']} SET bo_use_captcha = 1 WHERE bo_table = '" . sql_escape_string($bo_table) . "'";
+        
+        if (sql_query($update_sql)) {
+            echo json_encode(['success' => true, 'message' => '캡챠가 적용되었습니다.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => '캡챠 적용에 실패했습니다.']);
+        }
+        exit;
+    }
 }
 
 $g5['title'] = '정책관리';
@@ -396,6 +566,18 @@ $security_grade = getOverallSecurityGrade($analysis);
 }
 
 .section-content {
+    padding: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), 
+                opacity 0.3s ease,
+                padding 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    max-height: 0;
+    opacity: 0;
+}
+
+.section-content.expanded {
+    max-height: 3000px;
+    opacity: 1;
     padding: 20px;
 }
 
@@ -601,7 +783,7 @@ $security_grade = getOverallSecurityGrade($analysis);
     <!-- 확장자 정책 관리 -->
     <div class="dashboard-section">
         <div class="section-header" onclick="toggleSection('extension-section')" style="cursor: pointer;">
-            📁 확장자 정책 관리 <span id="extension-toggle" style="float: right;">▼</span>
+            📁 확장자 정책 관리 <span id="extension-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
         </div>
         <div class="section-content" id="extension-section">
             <div class="info-highlight">
@@ -691,7 +873,7 @@ $security_grade = getOverallSecurityGrade($analysis);
     <!-- 게시판 접근 권한 정책 -->
     <div class="dashboard-section">
         <div class="section-header" onclick="toggleSection('board-section')" style="cursor: pointer;">
-            🔐 게시판 접근 권한 정책 <span id="board-toggle" style="float: right;">▼</span>
+            🔐 게시판 접근 권한 정책 <span id="board-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
         </div>
         <div class="section-content" id="board-section">
             <div class="info-highlight">
@@ -877,14 +1059,14 @@ $security_grade = getOverallSecurityGrade($analysis);
                                     <?php if ($analysis['has_guest_permissions']): ?>
                                     <button onclick="updateBoardPermissions('<?php echo $board['bo_table']; ?>', 'fix_member_level', <?php echo $analysis['default_member_level']; ?>)" 
                                             style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
-                                        모든 접근 권한을 회원 레벨(<?php echo $analysis['default_member_level']; ?>)로 수정
+                                        모든 접근 권한을 기본 회원 레벨(<?php echo $analysis['default_member_level']; ?>)로 수정
                                     </button>
                                     <?php endif; ?>
                                     
                                     <?php if ($analysis['is_except_write_admin'] || $analysis['is_except_read_admin']): ?>
                                     <button onclick="updateBoardPermissions('<?php echo $board['bo_table']; ?>', 'fix_member_level', <?php echo $analysis['default_member_level']; ?>)" 
                                             style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
-                                        모든 접근 권한을 회원 레벨(<?php echo $analysis['default_member_level']; ?>)로 수정
+                                        모든 접근 권한을 기본 회원 레벨(<?php echo $analysis['default_member_level']; ?>)로 수정
                                     </button>
                                     <?php endif; ?>
                                     
@@ -946,6 +1128,441 @@ $security_grade = getOverallSecurityGrade($analysis);
             </div>
         </div>
     </div>
+
+    <!-- 관리자급 권한 보유 사용자 관리 -->
+    <div class="dashboard-section">
+        <div class="section-header" onclick="toggleSection('admin-users-section')" style="cursor: pointer;">
+            👥 관리자급 권한 보유 사용자 관리 <span id="admin-users-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+        </div>
+        <div class="section-content" id="admin-users-section">
+            <div class="info-highlight">
+                관리자와 동일한 권한 레벨(레벨 10)을 가진 일반 사용자를 감지하고 관리합니다.
+            </div>
+            
+            <?php
+            // 최고관리자 ID (보호 대상)
+            $super_admin_id = 'admin';
+            
+            // 기본 회원가입 권한 레벨 가져오기
+            $config_sql = "SELECT cf_register_level FROM {$g5['config_table']}";
+            $config_result = sql_fetch($config_sql);
+            $default_member_level = isset($config_result['cf_register_level']) ? $config_result['cf_register_level'] : 2;
+            
+            // 관리자급 권한을 가진 일반 사용자 검색
+            $admin_users_sql = "SELECT mb_id, mb_name, mb_nick, mb_level, mb_datetime, mb_email, mb_login_ip, mb_today_login 
+                               FROM {$g5['member_table']} 
+                               WHERE mb_level >= 10 
+                               AND mb_id != '{$super_admin_id}'
+                               ORDER BY mb_level DESC, mb_datetime ASC";
+            
+            $admin_users_result = sql_query($admin_users_sql);
+            $admin_users = array();
+            while ($row = sql_fetch_array($admin_users_result)) {
+                $admin_users[] = $row;
+            }
+            ?>
+            
+            
+            <?php if (count($admin_users) > 0): ?>
+            <form id="admin-users-form">
+                <div class="extension-container">
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; font-size: 16px; color: #333;">
+                            <label>
+                                <input type="checkbox" id="select-all-admin-users" style="margin-right: 8px;">
+                                전체 선택
+                            </label>
+                        </span>
+                        <button type="button" onclick="resetSelectedUserPermissions()" 
+                                style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;">
+                            선택된 사용자를 기본 권한(<?php echo $default_member_level; ?>)으로 초기화
+                        </button>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <?php foreach ($admin_users as $user): ?>
+                        <?php 
+                        $risk_level = '';
+                        $risk_color = '';
+                        if ($user['mb_level'] >= 10) {
+                            $risk_level = '위험';
+                            $risk_color = '#dc2626';
+                        }
+                        
+                        $last_login = $user['mb_today_login'] != '0000-00-00 00:00:00' ? 
+                                     substr($user['mb_today_login'], 0, 16) : '로그인 기록 없음';
+                        ?>
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                                        <label style="display: flex; align-items: center; cursor: pointer;">
+                                            <input type="checkbox" name="admin_users[]" value="<?php echo htmlspecialchars($user['mb_id']); ?>" 
+                                                   style="margin-right: 8px;" class="admin-user-checkbox">
+                                            <span style="font-weight: bold; font-size: 16px; color: #333;">
+                                                <?php echo htmlspecialchars($user['mb_id']); ?>
+                                            </span>
+                                        </label>
+                                        <?php if($user['mb_name']): ?>
+                                        <span style="background: #e6f3ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                                            이름: <?php echo htmlspecialchars($user['mb_name']); ?>
+                                        </span>
+                                        <?php endif; ?>
+                                        <?php if($user['mb_nick']): ?>
+                                        <span style="background: #f0f9ff; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                                            닉네임: <?php echo htmlspecialchars($user['mb_nick']); ?>
+                                        </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
+                                        <span style="margin-right: 15px;"><strong>권한레벨:</strong> <span style="color: #dc2626; font-weight: bold;"><?php echo $user['mb_level']; ?></span></span>
+                                        <span style="margin-right: 15px;"><strong>이메일:</strong> <?php echo htmlspecialchars($user['mb_email']); ?></span>
+                                        <span style="margin-right: 15px;"><strong>가입일:</strong> <?php echo substr($user['mb_datetime'], 0, 16); ?></span>
+                                        <span style="margin-right: 15px;"><strong>최근로그인:</strong> <?php echo $last_login; ?></span>
+                                        <span><strong>로그인IP:</strong> <?php echo htmlspecialchars($user['mb_login_ip']); ?></span>
+                                    </div>
+                                    
+                                    <div style="background: #fee2e2; color: #dc2626; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-top: 8px;">
+                                        ⚠️ 이 사용자는 관리자와 동일한 권한을 가지고 있어 보안상 위험할 수 있습니다.
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-left: 15px;">
+                                    <span style="padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; color: white; background: <?php echo $risk_color; ?>;">
+                                        <?php echo $risk_level; ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                </div>
+            </form>
+            <?php else: ?>
+            <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
+                    ✅ 관리자급 권한을 가진 일반 사용자가 없습니다.
+                </p>
+                <p style="margin: 10px 0; font-size: 16px; color: #155724;">
+                    현재 시스템이 안전한 상태입니다.
+                </p>
+            </div>
+            <?php endif; ?>
+            
+            <!-- 보안 가이드 -->
+            <div class="recommendations">
+                <h4>관리자 권한 보안 가이드</h4>
+                <ul>
+                    <li><strong>1.</strong> 레벨 10 이상의 사용자는 시스템 전체에 대한 관리자 권한을 가집니다</li>
+                    <li><strong>2.</strong> 정기적으로 관리자급 권한 사용자를 점검하시기 바랍니다</li>
+                    <li><strong>3.</strong> 불필요한 관리자 권한은 즉시 일반 회원 권한으로 변경하세요</li>
+                    <li><strong>4.</strong> 최고관리자(<?php echo $super_admin_id; ?>) 계정은 보호되어 변경할 수 없습니다</li>
+                    <li><strong>5.</strong> 관리자 권한 부여 시 신중하게 검토하고 필요한 경우에만 부여하세요</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 업로드 용량 정책 -->
+    <div class="dashboard-section">
+        <div class="section-header" onclick="toggleSection('upload-policy-section')" style="cursor: pointer;">
+            📁 업로드 용량 정책 <span id="upload-policy-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+        </div>
+        <div class="section-content" id="upload-policy-section">
+            <div class="info-highlight">
+                업로드 가능한 파일 용량이 과도하게 높아 서버 자원 고갈 위험을 확인하고 관리합니다.
+            </div>
+            
+            <?php
+            // 업로드 용량 위험 임계값 (100MB = 104857600 bytes)
+            $upload_risk_threshold = 100 * 1024 * 1024; // 100MB
+            
+            // 업로드 예외 목록 가져오기
+            $config_sql = "SELECT cf_2 FROM {$g5['config_table']}";
+            $config_result = sql_fetch($config_sql);
+            $upload_exceptions = isset($config_result['cf_2']) ? $config_result['cf_2'] : '';
+            $upload_exception_list = array();
+            if (!empty($upload_exceptions)) {
+                $upload_exception_list = explode('|', $upload_exceptions);
+                $upload_exception_list = array_map('trim', $upload_exception_list);
+                $upload_exception_list = array_filter($upload_exception_list);
+            }
+            
+            // 전체 게시판 업로드 설정 조회
+            $upload_boards_sql = "SELECT bo_table, bo_subject, bo_upload_size FROM {$g5['board_table']} WHERE bo_upload_size > 0 ORDER BY bo_upload_size DESC";
+            $upload_boards_result = sql_query($upload_boards_sql);
+            
+            $upload_boards = array();
+            $high_risk_count = 0;
+            while ($board = sql_fetch_array($upload_boards_result)) {
+                $board['is_high_risk'] = $board['bo_upload_size'] >= $upload_risk_threshold;
+                $board['is_exception'] = in_array($board['bo_table'], $upload_exception_list);
+                
+                // 예외 처리된 게시판은 위험도에서 제외
+                if ($board['is_high_risk'] && !$board['is_exception']) {
+                    $high_risk_count++;
+                }
+                $upload_boards[] = $board;
+            }
+            
+            // 전체 설정에서 기본 업로드 크기 확인
+            $config_sql = "SELECT cf_file_upload_size FROM {$g5['config_table']}";
+            $config_result = sql_fetch($config_sql);
+            $global_upload_size = $config_result ? $config_result['cf_file_upload_size'] : 0;
+            $global_is_high_risk = $global_upload_size >= $upload_risk_threshold;
+            ?>
+            
+            
+            <?php if ($global_is_high_risk): ?>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <div style="color: #dc2626; font-weight: bold; margin-bottom: 8px;">⚠️ 전역 업로드 크기 위험</div>
+                <div style="color: #666; font-size: 13px;">
+                    전체 사이트의 기본 업로드 크기가 <?php echo number_format($global_upload_size / 1024 / 1024, 1); ?>MB로 설정되어 있습니다. 
+                    이는 서버 자원 고갈 및 디스크 공간 부족을 야기할 수 있습니다.
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            <?php if (count($upload_boards) > 0): ?>
+            <div class="extension-container">
+                <div style="margin-bottom: 15px;">
+                    <span style="font-weight: bold; font-size: 16px; color: #333;">게시판별 업로드 크기 설정</span>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <?php foreach ($upload_boards as $board): ?>
+                    <div style="background: <?php 
+                                echo $board['is_exception'] ? '#fffbeb' : 
+                                    ($board['is_high_risk'] ? '#fef2f2' : '#f0f9f0'); 
+                               ?>; 
+                               border: 1px solid #e2e8f0; 
+                               border-radius: 8px; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                                    <span style="font-weight: bold; font-size: 16px; color: #333;">
+                                        <?php if ($board['is_exception']): ?>⚙️<?php elseif ($board['is_high_risk']): ?>🚨<?php else: ?>✅<?php endif; ?> <?php echo htmlspecialchars($board['bo_subject']); ?>
+                                    </span>
+                                    <span style="background: #f7fafc; color: #718096; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                                        <?php echo $board['bo_table']; ?>
+                                    </span>
+                                </div>
+                                
+                                <div style="font-size: 13px; color: #666; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                                    업로드 크기: 
+                                    <span style="background: #f7fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                        <?php echo number_format($board['bo_upload_size'] / 1024 / 1024, 1); ?>MB ( 바이트: <?php echo number_format($board['bo_upload_size']); ?> bytes)
+                                    </span>
+                                </div>
+                                
+                                <?php if ($board['is_exception']): ?>
+                                <div style="background: #fff3cd; color: #856404; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px;">
+                                    이 게시판은 예외 처리되어 보안 검사에서 제외됩니다. 관리자가 의도적으로 설정한 특별한 용도의 게시판입니다.
+                                </div>
+                                <?php elseif ($board['is_high_risk']): ?>
+                                <div style="background: #fee2e2; color: #dc2626; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px;">
+                                    이 게시판의 업로드 크기가 <?php echo number_format($upload_risk_threshold / 1024 / 1024); ?>MB 이상으로 설정되어 서버 자원 고갈 위험이 있습니다.
+                                </div>
+                                <?php else: ?>
+                                <div style="background: #e8f5e8; color: #0c5460; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px;">
+                                    이 게시판은 안전한 업로드 크기로 설정되어 있습니다. 서버 자원을 효율적으로 사용하고 있습니다.
+                                </div>
+                                <?php endif; ?>
+                                
+                                <div style="margin-top: 10px;">
+                                    <?php if ($board['is_exception']): ?>
+                                    <button onclick="toggleUploadException('<?php echo $board['bo_table']; ?>')" 
+                                            style="background: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                                        예외 처리 해제
+                                    </button>
+                                    <?php elseif ($board['is_high_risk']): ?>
+                                    <button onclick="limitUpload10MB('<?php echo $board['bo_table']; ?>')" 
+                                            style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; margin-right: 6px;">
+                                        10MB로 제한
+                                    </button>
+                                    <button onclick="toggleUploadException('<?php echo $board['bo_table']; ?>')" 
+                                            style="background: #fd7e14; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                                        예외 처리
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-left: 15px;">
+                                <span style="padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; color: white;
+                                           background: <?php 
+                                           echo $board['is_exception'] ? '#fd7e14' : 
+                                               ($board['is_high_risk'] ? '#dc2626' : '#059669'); 
+                                           ?>;">
+                                    <?php 
+                                    echo $board['is_exception'] ? '예외' : 
+                                        ($board['is_high_risk'] ? '위험' : '안전'); 
+                                    ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php else: ?>
+            <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
+                    ✅ 업로드가 허용된 게시판이 없습니다.
+                </p>
+                <p style="margin: 10px 0; font-size: 16px; color: #155724;">
+                    현재 파일 업로드 위험이 없는 상태입니다.
+                </p>
+            </div>
+            <?php endif; ?>
+            
+            <!-- 보안 가이드 -->
+            <div class="recommendations">
+                <h4>업로드 용량 보안 가이드</h4>
+                <ul>
+                    <li><strong>1.</strong> 업로드 크기는 실제 필요한 용량으로 제한하세요 (일반적으로 10MB 이하 권장)</li>
+                    <li><strong>2.</strong> 대용량 파일이 필요한 경우 별도의 파일 서버나 클라우드 스토리지 사용을 고려하세요</li>
+                    <li><strong>3.</strong> 서버 디스크 용량과 대역폭을 정기적으로 모니터링하세요</li>
+                    <li><strong>4.</strong> 업로드 파일 타입을 제한하여 불필요한 대용량 파일을 차단하세요</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 캡챠 적용 정책 -->
+    <div class="dashboard-section">
+        <div class="section-header" onclick="toggleSection('captcha-policy-section')" style="cursor: pointer;">
+            🤖 캡챠 적용 정책 <span id="captcha-policy-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+        </div>
+        <div class="section-content" id="captcha-policy-section">
+            <div class="info-highlight">
+                회원가입 및 주요 기능에서 캡챠 적용 여부를 확인하여 자동화 공격 위험을 관리합니다.
+            </div>
+            
+            <?php
+            // 캡차 예외 목록 가져오기
+            $config_sql = "SELECT cf_4 FROM {$g5['config_table']}";
+            $config_result = sql_fetch($config_sql);
+            $captcha_exceptions = isset($config_result['cf_4']) ? $config_result['cf_4'] : '';
+            $captcha_exception_list = array();
+            if (!empty($captcha_exceptions)) {
+                $captcha_exception_list = explode('|', $captcha_exceptions);
+                $captcha_exception_list = array_map('trim', $captcha_exception_list);
+                $captcha_exception_list = array_filter($captcha_exception_list);
+            }
+            
+            // 전체 캡차 설정 확인
+            $captcha_config_sql = "SELECT cf_use_captcha FROM {$g5['config_table']}";
+            $captcha_config_result = sql_fetch($captcha_config_sql);
+            $global_captcha = $captcha_config_result ? $captcha_config_result['cf_use_captcha'] : 0;
+            
+            // 캡차가 적용되지 않은 게시판 조회
+            $no_captcha_boards_sql = "SELECT bo_table, bo_subject, bo_use_captcha FROM {$g5['board_table']} WHERE bo_use_captcha = 0 ORDER BY bo_subject";
+            $no_captcha_boards_result = sql_query($no_captcha_boards_sql);
+            
+            $no_captcha_boards = array();
+            $risk_count = 0;
+            while ($board = sql_fetch_array($no_captcha_boards_result)) {
+                $board['is_exception'] = in_array($board['bo_table'], $captcha_exception_list);
+                if (!$board['is_exception']) {
+                    $risk_count++;
+                }
+                $no_captcha_boards[] = $board;
+            }
+            
+            if (!$global_captcha) {
+                $risk_count++; // 전역 캡차가 비활성화된 경우 위험도 증가
+            }
+            ?>
+            
+            <?php if (count($no_captcha_boards) > 0): ?>
+            <div class="extension-container">
+                <div style="margin-bottom: 15px;">
+                    <span style="font-weight: bold; font-size: 16px; color: #333;">캡챠가 적용되지 않은 게시판</span>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <?php foreach ($no_captcha_boards as $board): ?>
+                    <div style="background: <?php echo $board['is_exception'] ? '#fff3cd' : '#fef2f2'; ?>; 
+                               border: 1px solid <?php echo $board['is_exception'] ? '#ffeaa7' : '#fecaca'; ?>; 
+                               border-radius: 8px; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                                    <span style="font-weight: bold; font-size: 16px; color: #333;">
+                                        <?php echo htmlspecialchars($board['bo_subject']); ?>
+                                    </span>
+                                    <span style="background: #f7fafc; color: #718096; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                                        <?php echo $board['bo_table']; ?>
+                                    </span>
+                                </div>
+                                
+                                <?php if ($board['is_exception']): ?>
+                                <div style="background: #fff3cd; color: #856404; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px;">
+                                    이 게시판은 예외 처리되어 보안 검사에서 제외됩니다. 관리자가 의도적으로 설정한 특별한 용도의 게시판입니다.
+                                </div>
+                                <?php else: ?>
+                                <div style="background: #fee2e2; color: #dc2626; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px;">
+                                    이 게시판에서는 캡챠 인증 없이 글 작성이 가능하여 스팸 게시글 및 자동화 공격에 취약할 수 있습니다.
+                                </div>
+                                <?php endif; ?>
+                                
+                                <div style="margin-top: 10px;">
+                                    <?php if ($board['is_exception']): ?>
+                                    <button onclick="toggleCaptchaException('<?php echo $board['bo_table']; ?>')" 
+                                            style="background: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                                        예외 처리 해제
+                                    </button>
+                                    <?php else: ?>
+                                    <button onclick="applyCaptcha('<?php echo $board['bo_table']; ?>')" 
+                                            style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; margin-right: 6px;">
+                                        캡챠 적용
+                                    </button>
+                                    <button onclick="toggleCaptchaException('<?php echo $board['bo_table']; ?>')" 
+                                            style="background: #fd7e14; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                                        예외 처리
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-left: 15px;">
+                                <span style="padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; color: white; 
+                                           background: <?php echo $board['is_exception'] ? '#fd7e14' : '#dc2626'; ?>;">
+                                    <?php echo $board['is_exception'] ? '예외' : '위험'; ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php else: ?>
+            <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
+                    ✅ 모든 게시판에 캡챠가 적용되어 있습니다.
+                </p>
+                <p style="margin: 10px 0; font-size: 16px; color: #155724;">
+                    현재 자동화 공격으로부터 보호되고 있습니다.
+                </p>
+            </div>
+            <?php endif; ?>
+            
+            <!-- 보안 가이드 -->
+            <div class="recommendations">
+                <h4>캡챠 적용 보안 가이드</h4>
+                <ul>
+                    <li><strong>1.</strong> 회원가입, 로그인, 게시글 작성 등 주요 기능에는 캡챠를 적용하세요</li>
+                    <li><strong>2.</strong> 사용자 경험을 고려하여 적절한 수준의 캡챠를 선택하세요</li>
+                    <li><strong>3.</strong> 반복적인 실패 시 캡챠 난이도를 높이는 방식을 고려하세요</li>
+                    <li><strong>4.</strong> 정기적으로 스팸 및 자동화 공격 시도를 모니터링하세요</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -999,6 +1616,7 @@ function removeExtension(extension) {
     .then(data => {
         if (data.success) {
             alert('확장자가 삭제되었습니다.');
+            saveScrollPosition();
             location.reload();
         } else {
             alert('오류: ' + data.message);
@@ -1013,15 +1631,89 @@ function removeExtension(extension) {
 // 섹션 토글 함수
 function toggleSection(sectionId) {
     const section = document.getElementById(sectionId);
-    const toggle = document.getElementById('extension-toggle');
+    let toggle;
     
-    if (section.style.display === 'none') {
-        section.style.display = 'block';
-        toggle.textContent = '▼';
-    } else {
-        section.style.display = 'none';
-        toggle.textContent = '▶';
+    if (sectionId === 'extension-section') {
+        toggle = document.getElementById('extension-toggle');
+    } else if (sectionId === 'board-section') {
+        toggle = document.getElementById('board-toggle');
+    } else if (sectionId === 'admin-users-section') {
+        toggle = document.getElementById('admin-users-toggle');
+    } else if (sectionId === 'upload-policy-section') {
+        toggle = document.getElementById('upload-policy-toggle');
+    } else if (sectionId === 'captcha-policy-section') {
+        toggle = document.getElementById('captcha-policy-toggle');
     }
+    
+    if (section.classList.contains('expanded')) {
+        // 접기
+        section.classList.remove('expanded');
+        if (toggle) {
+            toggle.textContent = '▶';
+            toggle.style.transform = 'rotate(-90deg)';
+        }
+    } else {
+        // 펼치기
+        section.classList.add('expanded');
+        if (toggle) {
+            toggle.textContent = '▼';
+            toggle.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+// 관리자 사용자 전체 선택/해제
+function toggleSelectAllAdminUsers() {
+    const selectAll = document.getElementById('select-all-admin-users');
+    const checkboxes = document.querySelectorAll('.admin-user-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+// 선택된 사용자 권한 초기화
+function resetSelectedUserPermissions() {
+    const checkboxes = document.querySelectorAll('.admin-user-checkbox:checked');
+    
+    if (checkboxes.length === 0) {
+        alert('권한을 초기화할 사용자를 선택해주세요.');
+        return;
+    }
+    
+    const userIds = Array.from(checkboxes).map(cb => cb.value);
+    const confirmMessage = `선택된 ${userIds.length}명의 사용자 권한을 기본 회원 권한으로 변경하시겠습니까?\n\n변경될 사용자: ${userIds.join(', ')}\n\n이 작업은 되돌릴 수 없습니다.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'reset_member_permissions');
+    
+    userIds.forEach(userId => {
+        formData.append('selected_users[]', userId);
+    });
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            saveScrollPosition();
+            location.reload();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('요청 중 오류가 발생했습니다.');
+    });
 }
 
 // 게시판 권한 수정 함수
@@ -1041,6 +1733,7 @@ function fixBoardPermissions(bo_table, default_level) {
     .then(data => {
         if (data.success) {
             alert('게시판 권한이 수정되었습니다.');
+            saveScrollPosition();
             location.reload();
         } else {
             alert('오류: ' + data.message);
@@ -1071,6 +1764,7 @@ function toggleBoardException(bo_table) {
     .then(data => {
         if (data.success) {
             alert(data.message);
+            saveScrollPosition();
             location.reload();
         } else {
             alert('오류: ' + data.message);
@@ -1122,6 +1816,7 @@ function updateBoardPermissions(bo_table, type, level = null) {
     .then(data => {
         if (data.success) {
             alert('게시판 권한이 성공적으로 변경되었습니다.');
+            saveScrollPosition();
             location.reload();
         } else {
             alert('오류: ' + data.message);
@@ -1133,9 +1828,192 @@ function updateBoardPermissions(bo_table, type, level = null) {
     });
 }
 
+// 업로드 예외 처리 토글 함수
+function toggleUploadException(bo_table) {
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `ajax=1&action=toggle_upload_exception&bo_table=${encodeURIComponent(bo_table)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('업로드 정책 예외 처리가 ' + (data.is_exception ? '설정' : '해제') + '되었습니다.');
+            saveScrollPosition();
+            location.reload();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('요청 중 오류가 발생했습니다.');
+    });
+}
+
+
+// 캡차 예외 처리 토글 함수
+function toggleCaptchaException(bo_table) {
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `ajax=1&action=toggle_captcha_exception&bo_table=${encodeURIComponent(bo_table)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('캡챠 정책 예외 처리가 ' + (data.is_exception ? '설정' : '해제') + '되었습니다.');
+            saveScrollPosition();
+            location.reload();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('요청 중 오류가 발생했습니다.');
+    });
+}
+
+// 업로드 크기 10MB로 제한 함수
+function limitUpload10MB(bo_table) {
+    if (!confirm(`'${bo_table}' 게시판의 업로드 크기를 10MB로 제한하시겠습니까?\n\n현재 설정된 업로드 크기가 10MB(10,485,760 bytes)로 변경됩니다.`)) {
+        return;
+    }
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `ajax=1&action=limit_upload_10mb&bo_table=${encodeURIComponent(bo_table)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            saveScrollPosition();
+            location.reload();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('요청 중 오류가 발생했습니다.');
+    });
+}
+
+// 캡챠 적용 함수
+function applyCaptcha(bo_table) {
+    if (!confirm(`'${bo_table}' 게시판에 캡챠를 적용하시겠습니까?\n\n글 작성 시 캡챠 인증이 필요하게 됩니다.`)) {
+        return;
+    }
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `ajax=1&action=apply_captcha&bo_table=${encodeURIComponent(bo_table)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            saveScrollPosition();
+            location.reload();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('요청 중 오류가 발생했습니다.');
+    });
+}
+
+// 스크롤 위치 저장 함수
+function saveScrollPosition() {
+    sessionStorage.setItem('scrollPosition', window.pageYOffset);
+    sessionStorage.setItem('isAjaxReload', 'true');
+}
+
+// 스크롤 위치 복원 함수
+function restoreScrollPosition() {
+    const savedPosition = sessionStorage.getItem('scrollPosition');
+    if (savedPosition) {
+        // 페이지 렌더링 완료 후 스크롤 복원
+        setTimeout(() => {
+            window.scrollTo(0, parseInt(savedPosition));
+            sessionStorage.removeItem('scrollPosition');
+        }, 100);
+    }
+}
+
+// 새로고침 감지 (AJAX 요청 후 새로고침 여부 확인)
+function isReloadAfterAjax() {
+    const isAjaxReload = sessionStorage.getItem('isAjaxReload') === 'true';
+    if (isAjaxReload) {
+        sessionStorage.removeItem('isAjaxReload');
+    }
+    return isAjaxReload;
+}
+
 // 페이지 로드 시 툴팁 초기화
 document.addEventListener('DOMContentLoaded', function() {
     initializeTooltips();
+    
+    // 관리자 사용자 전체 선택 체크박스 이벤트
+    const selectAllCheckbox = document.getElementById('select-all-admin-users');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', toggleSelectAllAdminUsers);
+    }
+    
+    // 스크롤 위치 복원
+    restoreScrollPosition();
+    
+    // 새로고침 후가 아닌 경우에만 자동 펼치기 실행
+    const isAfterReload = isReloadAfterAjax();
+    
+    // 각 섹션을 순차적으로 펼치기 (새로고침 후가 아닌 경우에만)
+    const sections = ['extension-section', 'board-section', 'admin-users-section', 'upload-policy-section', 'captcha-policy-section'];
+    if (!isAfterReload) {
+        // 새로고침 후가 아닌 경우에만 자동 펼치기 애니메이션 실행
+        sections.forEach((sectionId, index) => {
+            setTimeout(() => {
+                const section = document.getElementById(sectionId);
+                const toggle = document.getElementById(sectionId.replace('-section', '-toggle'));
+                if (section && toggle) {
+                    section.classList.add('expanded');
+                    toggle.textContent = '▼';
+                    toggle.style.transform = 'rotate(0deg)';
+                }
+            }, 200 + (index * 200));
+        });
+    } else {
+        // 새로고침 후인 경우 즉시 모든 섹션 펼치기 (애니메이션 없이)
+        sections.forEach((sectionId) => {
+            const section = document.getElementById(sectionId);
+            const toggle = document.getElementById(sectionId.replace('-section', '-toggle'));
+            if (section && toggle) {
+                // 트랜지션 임시 비활성화
+                section.style.transition = 'none';
+                // 즉시 펼치기
+                section.classList.add('expanded');
+                toggle.textContent = '▼';
+                toggle.style.transform = 'rotate(0deg)';
+                // 트랜지션 복원 (다음 상호작용을 위해)
+                setTimeout(() => {
+                    section.style.transition = '';
+                }, 50);
+            }
+        });
+    }
     
     // 스크롤 시 툴팁 숨기기
     window.addEventListener('scroll', function() {
