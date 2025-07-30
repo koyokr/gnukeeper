@@ -6,46 +6,38 @@ auth_check_menu($auth, $sub_menu, 'w');
 // 보안 관리 함수들
 
 
-function get_current_admin_ip() {
-    return $_SERVER['REMOTE_ADDR'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_CLIENT_IP'] ?? '';
-}
 
 function create_tables() {
     $sql_file = __DIR__ . '/security_block.sql';
     if (!file_exists($sql_file)) {
         return false;
     }
-    
+
     $sql_content = file_get_contents($sql_file);
     if ($sql_content === false) {
         return false;
     }
-    
+
     // {PREFIX}를 실제 테이블 접두사로 치환
     $sql_content = str_replace('{PREFIX}', G5_TABLE_PREFIX, $sql_content);
-    
+
     // SQL 문장을 분리하여 실행
     $statements = explode(';', $sql_content);
-    
+
     foreach ($statements as $statement) {
         $statement = trim($statement);
         if (empty($statement) || strpos($statement, '--') === 0) {
             continue;
         }
-        
+
         if (!sql_query($statement)) {
             return false;
         }
     }
-    
+
     return true;
 }
 
-function gk_set_config($key, $value) {
-    $sql = "INSERT INTO " . G5_TABLE_PREFIX . "security_config (sc_key, sc_value) VALUES ('" . sql_escape_string($key) . "', '" . sql_escape_string($value) . "')
-            ON DUPLICATE KEY UPDATE sc_value = '" . sql_escape_string($value) . "'";
-    return sql_query($sql);
-}
 
 function normalize_ip($ip) {
     // /32 CIDR을 단일 IP로 변환
@@ -63,42 +55,10 @@ function add_whitelist_ip($ip, $memo) {
     return sql_query($sql);
 }
 
-function is_valid_cidr($cidr) {
-    if (!preg_match('/^([0-9.]+)\/([0-9]+)$/', $cidr, $matches)) {
-        return false;
-    }
-    
-    $ip = $matches[1];
-    $prefix_length = (int)$matches[2];
-    
-    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && $prefix_length >= 0 && $prefix_length <= 32;
-}
-
-function parse_cidr($cidr) {
-    list($ip, $prefix_length) = explode('/', $cidr);
-    $ip_long = ip2long($ip);
-    $mask = ~((1 << (32 - $prefix_length)) - 1);
-    $start_ip = $ip_long & $mask;
-    $end_ip = $start_ip | ~$mask;
-    return [$start_ip, $end_ip];
-}
-
-function ip_to_long($ip) {
-    return sprintf('%u', ip2long($ip));
-}
-
-function is_whitelisted_ip($ip) {
-    $result = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist WHERE sw_ip = '" . sql_escape_string($ip) . "'");
-    return $result['cnt'] > 0;
-}
-
-function is_valid_ip($ip) {
-    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
-}
 
 function bulk_toggle_status($ids, $new_status) {
     if (empty($ids)) return false;
-    
+
     $ids_str = implode(',', array_map('intval', $ids));
     $sql = "UPDATE " . G5_TABLE_PREFIX . "security_ip_block SET sb_status = '" . sql_escape_string($new_status) . "' WHERE sb_id IN ($ids_str)";
     return sql_query($sql);
@@ -110,12 +70,17 @@ function toggle_block_status($sb_id, $new_status) {
 }
 
 // 초기화
-$current_admin_ip = get_current_admin_ip();
+$current_admin_ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
 // 액션 처리
 $action = $_POST['action'] ?? '';
 if ($action && isset($is_admin) && $is_admin == 'super') {
     switch ($action) {
+
+        case 'create_tables':
+            $result = create_tables();
+            alert($result ? '테이블이 성공적으로 생성되었습니다.' : '테이블 생성에 실패했습니다.');
+            break;
 
         case 'uninstall_tables':
             // 삭제 전용 파일로 리다이렉트
@@ -143,6 +108,26 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
             alert('설정이 저장되었습니다. (gnuboard5 기본 IP 차단 기능도 자동 조정됨)');
             break;
 
+        case 'toggle_foreign':
+            $ip_foreign_block_enabled = $_POST['ip_foreign_block_enabled'] ?? '0';
+            gk_set_config('ip_foreign_block_enabled', $ip_foreign_block_enabled);
+
+            if (isset($_POST['ajax'])) {
+                echo 'success';
+                exit;
+            }
+            alert('해외 IP 차단 기능이 ' . ($ip_foreign_block_enabled == '1' ? '활성화' : '비활성화') . '되었습니다.');
+            break;
+            
+        case 'save_foreign_level':
+            $foreign_block_level = isset($_POST['foreign_block_level']) && is_array($_POST['foreign_block_level']) 
+                                   ? implode(',', $_POST['foreign_block_level']) 
+                                   : 'access';
+            gk_set_config('ip_foreign_block_level', $foreign_block_level);
+            
+            alert('해외 IP 차단 수준이 저장되었습니다.');
+            break;
+
         case 'add_whitelist':
 
             $ip = trim($_POST['whitelist_ip']);
@@ -156,30 +141,28 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
             // IP 주소 정규화 (/32 CIDR을 단일 IP로 변환)
             $ip = normalize_ip($ip);
 
-            // 현재 접속자 IP와 비교 경고
+            // 현재 접속자 IP와 같은 경우 확인 메시지 (경고가 아닌 정보성)
             if ($ip == $current_admin_ip) {
-                alert('경고: 현재 접속 중인 관리자 IP(' . $current_admin_ip . ')를 예외 IP로 추가하려고 합니다. 이미 관리자이므로 불필요할 수 있습니다.');
+                // 관리자 IP를 예외 IP로 추가하는 것은 매우 합리적인 보안 조치임
+                // 경고 메시지 제거 - 이는 정상적이고 권장되는 행위
             }
 
-            // 광범위한 CIDR 경고 (CIDR 표기법인 경우)
+            // CIDR 검사
             if (strpos($ip, '/') !== false) {
-                if (is_valid_cidr($ip)) {
-                    list($network, $prefix_length) = explode('/', $ip);
-                    $prefix_length = (int)$prefix_length;
-                    
-                    // /16 이하 (65536개 이상 IP) 또는 /8 이하 (16777216개 이상 IP) 경고
-                    if ($prefix_length <= 16) {
-                        $ip_count = pow(2, 32 - $prefix_length);
-                        alert('경고: 매우 광범위한 IP 대역입니다. 이 CIDR은 ' . number_format($ip_count) . '개의 IP를 포함합니다. 정말 추가하시겠습니까?');
-                        break;
-                    }
-                } else {
+                $result = gk_parse_cidr($ip);
+                if (!$result) {
                     alert('올바른 CIDR 형식이 아닙니다.');
                     break;
                 }
+                list($network, $prefix_length) = explode('/', $ip);
+                $prefix_length = (int)$prefix_length;
+                if ($prefix_length <= 16) {
+                    $ip_count = pow(2, 32 - $prefix_length);
+                    alert('경고: 매우 광범위한 IP 대역입니다. 이 CIDR은 ' . number_format($ip_count) . '개의 IP를 포함합니다.');
+                    break;
+                }
             } else {
-                // 단일 IP 유효성 검사
-                if (!is_valid_ip($ip)) {
+                if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                     alert('올바른 IP 주소가 아닙니다.');
                     break;
                 }
@@ -202,8 +185,9 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
 
             $ip = trim($_POST['ip']);
             $reason = trim($_POST['reason']);
-            $duration = $_POST['duration'];
-            $end_datetime = $_POST['end_datetime'];
+            $duration = isset($_POST['duration']) ? $_POST['duration'] : 'permanent';
+            $end_datetime = isset($_POST['end_datetime']) ? $_POST['end_datetime'] : null;
+            $block_level = isset($_POST['block_level']) && is_array($_POST['block_level']) ? implode(',', $_POST['block_level']) : 'access';
 
             if (!$ip || !$reason) {
                 alert('IP 주소와 차단 사유를 입력해주세요.');
@@ -215,10 +199,10 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
 
             // 현재 관리자 IP 확인
             if (strpos($ip, '/') !== false) {
-                if (is_valid_cidr($ip)) {
-                    list($start_ip, $end_ip) = parse_cidr($ip);
-                    $admin_ip_long = ip_to_long($current_admin_ip);
-                    if ($admin_ip_long >= $start_ip && $admin_ip_long <= $end_ip) {
+                $result = gk_parse_cidr($ip);
+                if ($result) {
+                    $admin_ip_long = sprintf('%u', ip2long($current_admin_ip));
+                    if ($admin_ip_long >= $result['start'] && $admin_ip_long <= $result['end']) {
                         alert('경고: 현재 접속 중인 관리자 IP(' . $current_admin_ip . ')가 차단 대상에 포함됩니다.');
                         break;
                     }
@@ -229,7 +213,8 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
             }
 
             // 예외 IP 확인
-            if (is_whitelisted_ip($ip)) {
+            $result = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist WHERE sw_ip = '" . sql_escape_string($ip) . "'");
+            if ($result['cnt'] > 0) {
                 alert('이 IP는 예외 IP에 등록되어 있어 차단할 수 없습니다.');
                 break;
             }
@@ -243,17 +228,19 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
             }
 
             if (strpos($ip, '/') !== false) {
-                if (!is_valid_cidr($ip)) {
+                $result = gk_parse_cidr($ip);
+                if (!$result) {
                     alert('올바른 CIDR 형식이 아닙니다.');
                     break;
                 }
-                list($start_ip, $end_ip) = parse_cidr($ip);
+                $start_ip = $result['start'];
+                $end_ip = $result['end'];
             } else {
-                if (!is_valid_ip($ip)) {
+                if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                     alert('올바른 IP 주소가 아닙니다.');
                     break;
                 }
-                $start_ip = $end_ip = ip_to_long($ip);
+                $start_ip = $end_ip = sprintf('%u', ip2long($ip));
             }
 
             $sql = "INSERT INTO " . G5_TABLE_PREFIX . "security_ip_block SET
@@ -262,11 +249,22 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
                     sb_end_ip = " . (int)$end_ip . ",
                     sb_reason = '" . sql_escape_string($reason) . "',
                     sb_block_type = 'manual',
+                    sb_block_level = '" . sql_escape_string($block_level) . "',
                     sb_duration = '" . sql_escape_string($duration) . "',
                     sb_end_datetime = " . ($duration == 'temporary' && $end_datetime ? "'" . sql_escape_string($end_datetime) . "'" : 'NULL') . ",
                     sb_datetime = NOW()";
 
-            alert(sql_query($sql) ? 'IP 차단이 추가되었습니다.' : 'IP 차단 추가에 실패했습니다.');
+            // 디버깅을 위한 로그 출력
+            error_log("SQL Query: " . $sql);
+            error_log("Variables - IP: $ip, Reason: $reason, Block Level: $block_level, Duration: $duration");
+            
+            $result = sql_query($sql);
+            if ($result) {
+                alert('IP 차단이 추가되었습니다.');
+            } else {
+                error_log("SQL Query failed: " . $sql);
+                alert('IP 차단 추가에 실패했습니다. 관리자에게 문의하세요.');
+            }
             break;
 
         case 'delete_block':
@@ -298,7 +296,7 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
 
                     if (!empty($ids)) {
                         $result = bulk_toggle_status($ids, $new_status);
-                        
+
                         if (isset($_POST['ajax'])) {
                             if ($result) {
                                 $status_text = $new_status == 'active' ? '활성화' : '비활성화';
@@ -336,10 +334,10 @@ if ($action && isset($is_admin) && $is_admin == 'super') {
 
             $sb_id = (int)$_POST['sb_id'];
             $new_status = $_POST['status'] == 'active' ? 'inactive' : 'active';
-            
+
             if ($sb_id > 0) {
                 $result = toggle_block_status($sb_id, $new_status);
-                
+
                 if (isset($_POST['ajax'])) {
                     echo $result ? 'success:상태가 변경되었습니다.' : 'error:상태 변경에 실패했습니다.';
                     exit;

@@ -12,6 +12,7 @@ CREATE TABLE `{PREFIX}security_ip_block` (
   `sb_end_ip` bigint(20) UNSIGNED NOT NULL DEFAULT 0 COMMENT '끝 IP (숫자형)',
   `sb_reason` varchar(255) NOT NULL DEFAULT '' COMMENT '차단 사유',
   `sb_block_type` enum('manual','auto_login','auto_spam','auto_abuse') NOT NULL DEFAULT 'manual',
+  `sb_block_level` varchar(50) NOT NULL DEFAULT 'access' COMMENT '차단 레벨 (access,login,write,memo 조합)',
   `sb_duration` enum('permanent','temporary') NOT NULL DEFAULT 'permanent',
   `sb_end_datetime` datetime NULL COMMENT '차단 종료일시',
   `sb_hit_count` int(11) NOT NULL DEFAULT 0 COMMENT '차단 적중 횟수',
@@ -48,7 +49,7 @@ CREATE TABLE `{PREFIX}security_ip_whitelist` (
   `sw_datetime` datetime NOT NULL COMMENT '등록일시',
   PRIMARY KEY (`sw_id`),
   UNIQUE KEY `unique_ip` (`sw_ip`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='IP 화이트리스트';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='예외 IP';
 
 -- --------------------------------------------------------
 
@@ -59,13 +60,3 @@ CREATE TABLE `{PREFIX}security_config` (
   PRIMARY KEY (`sc_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='보안 설정';
 
--- --------------------------------------------------------
---
--- 기본 설정값 삽입
---
-
-INSERT INTO `{PREFIX}security_config` (`sc_key`, `sc_value`) VALUES
-('ip_block_enabled', '1'),
-('login_attempt_limit', '5'),
-('login_attempt_window', '300'),
-('auto_block_duration', '3600');

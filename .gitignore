@@ -21,7 +21,7 @@
 !/adm/security_block_delete.php
 !/adm/security_block_update.php
 !/adm/security_block.sql
-!/adm/security_ip_block.sql
+!/adm/security_block_ip_kr.txt
 
 # 정책관리
 !/adm/security_extension.php
@@ -29,10 +29,11 @@
 # 스팸관리
 !/adm/security_spam.php
 !/adm/security_spam_update.php
+!/adm/security_spam.sql
 
 # EXTEND
-!/extend/security_ip_blocker.php
-!/extend/security_ip_check.php
 !/extend/register_access_control.php
+!/extend/security_block_ip_foreign.extend.php
 !/extend/security_block_ip.extend.php
+!/extend/security_common.extend.php
 !/extend/security_detect_spam.extend.php

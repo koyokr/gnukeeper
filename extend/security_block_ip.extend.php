@@ -2,7 +2,7 @@
 /**
  * IP 차단 보안 플러그인
  * gnuboard5 extend 파일
- * 
+ *
  * 이 파일은 모든 페이지에서 자동으로 로드되어 IP 차단을 실행합니다.
  */
 
@@ -13,16 +13,8 @@ if (isset($member) && $member['mb_level'] >= 10) {
     return;
 }
 
-// 현재 접속자 IP 주소 확인 (프록시 고려)
+// 현재 접속자 IP 주소 확인
 $current_ip = $_SERVER['REMOTE_ADDR'] ?? '';
-if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-    $forwarded_ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-    $current_ip = trim($forwarded_ips[0]);
-} elseif (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-    $current_ip = $_SERVER['HTTP_X_REAL_IP'];
-} elseif (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-    $current_ip = $_SERVER['HTTP_CLIENT_IP'];
-}
 
 // IP 유효성 검사
 if (empty($current_ip) || !filter_var($current_ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
@@ -34,7 +26,7 @@ if (!security_check_tables_exist() || !security_is_enabled()) {
     return;
 }
 
-// 화이트리스트 확인 (우선 처리)
+// 예외 IP(화이트리스트) 확인 (우선 처리)
 if (security_is_whitelisted($current_ip)) {
     return;
 }
@@ -42,12 +34,23 @@ if (security_is_whitelisted($current_ip)) {
 // IP 차단 확인
 $block_info = security_get_block_info($current_ip);
 if ($block_info) {
-    // 차단 로그 기록
-    security_log_blocked_access($current_ip, $block_info);
+    // 차단 수준 확인
+    $block_levels = explode(',', $block_info['sb_block_level']);
     
-    // 차단 페이지 표시 후 종료
-    security_show_blocked_page($block_info, $current_ip);
-    exit;
+    // 접속 차단인 경우 즉시 차단 페이지 표시
+    if (in_array('access', $block_levels)) {
+        // 차단 로그 기록
+        security_log_blocked_access($current_ip, $block_info);
+        
+        // 차단 페이지 표시 후 종료
+        security_show_blocked_page($block_info, $current_ip);
+        exit;
+    }
+    
+    // 그 외 차단 수준은 전역 변수로 설정 (다른 페이지에서 확인)
+    global $g5_security_block_info;
+    $g5_security_block_info = $block_info;
+    $g5_security_block_levels = $block_levels;
 }
 
 /**
@@ -55,13 +58,13 @@ if ($block_info) {
  */
 function security_check_tables_exist() {
     static $tables_exist = null;
-    
+
     if ($tables_exist === null) {
         $sql = "SHOW TABLES LIKE '" . G5_TABLE_PREFIX . "security_config'";
         $result = sql_query($sql, false);
         $tables_exist = ($result && sql_num_rows($result) > 0);
     }
-    
+
     return $tables_exist;
 }
 
@@ -70,33 +73,33 @@ function security_check_tables_exist() {
  */
 function security_is_enabled() {
     static $is_enabled = null;
-    
+
     if ($is_enabled === null) {
         $sql = "SELECT sc_value FROM " . G5_TABLE_PREFIX . "security_config WHERE sc_key = 'ip_block_enabled'";
         $result = sql_query($sql, false);
-        
+
         if ($result && $row = sql_fetch_array($result)) {
             $is_enabled = ($row['sc_value'] == '1');
         } else {
             $is_enabled = true; // 기본값
         }
     }
-    
+
     return $is_enabled;
 }
 
 /**
- * IP가 화이트리스트에 있는지 확인
+ * IP가 예외 IP(화이트리스트)에 있는지 확인
  */
 function security_is_whitelisted($ip) {
-    $sql = "SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist 
+    $sql = "SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist
             WHERE sw_ip = '" . sql_escape_string($ip) . "'";
-    
+
     $result = sql_query($sql, false);
     if ($result && $row = sql_fetch_array($result)) {
         return $row['cnt'] > 0;
     }
-    
+
     return false;
 }
 
@@ -105,33 +108,33 @@ function security_is_whitelisted($ip) {
  */
 function security_get_block_info($ip) {
     $ip_long = sprintf('%u', ip2long($ip));
-    
-    $sql = "SELECT sb_id, sb_ip, sb_reason, sb_block_type, sb_duration, 
+
+    $sql = "SELECT sb_id, sb_ip, sb_reason, sb_block_type, sb_block_level, sb_duration,
                    sb_end_datetime, sb_datetime, sb_hit_count
-            FROM " . G5_TABLE_PREFIX . "security_ip_block 
-            WHERE sb_status = 'active' 
+            FROM " . G5_TABLE_PREFIX . "security_ip_block
+            WHERE sb_status = 'active'
               AND {$ip_long} BETWEEN sb_start_ip AND sb_end_ip
-            ORDER BY sb_datetime DESC 
+            ORDER BY sb_datetime DESC
             LIMIT 1";
-    
+
     $result = sql_query($sql, false);
     if ($result && $block = sql_fetch_array($result)) {
         // 임시 차단의 경우 만료 시간 확인
-        if ($block['sb_duration'] == 'temporary' && 
-            $block['sb_end_datetime'] && 
+        if ($block['sb_duration'] == 'temporary' &&
+            $block['sb_end_datetime'] &&
             strtotime($block['sb_end_datetime']) < time()) {
-            
+
             // 만료된 차단 규칙 상태 업데이트
             security_expire_block($block['sb_id']);
             return false;
         }
-        
+
         // 차단 적중 횟수 증가
         security_increment_hit_count($block['sb_id']);
-        
+
         return $block;
     }
-    
+
     return false;
 }
 
@@ -139,10 +142,10 @@ function security_get_block_info($ip) {
  * 만료된 차단 규칙 상태 업데이트
  */
 function security_expire_block($block_id) {
-    $sql = "UPDATE " . G5_TABLE_PREFIX . "security_ip_block 
-            SET sb_status = 'expired' 
+    $sql = "UPDATE " . G5_TABLE_PREFIX . "security_ip_block
+            SET sb_status = 'expired'
             WHERE sb_id = " . (int)$block_id;
-    
+
     sql_query($sql, false);
 }
 
@@ -150,10 +153,10 @@ function security_expire_block($block_id) {
  * 차단 적중 횟수 증가
  */
 function security_increment_hit_count($block_id) {
-    $sql = "UPDATE " . G5_TABLE_PREFIX . "security_ip_block 
-            SET sb_hit_count = sb_hit_count + 1 
+    $sql = "UPDATE " . G5_TABLE_PREFIX . "security_ip_block
+            SET sb_hit_count = sb_hit_count + 1
             WHERE sb_id = " . (int)$block_id;
-    
+
     sql_query($sql, false);
 }
 
@@ -163,14 +166,14 @@ function security_increment_hit_count($block_id) {
 function security_log_blocked_access($ip, $block_info) {
     $current_page = $_SERVER['REQUEST_URI'] ?? '';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    
+
     $sql = "INSERT INTO " . G5_TABLE_PREFIX . "security_ip_log SET
                 sl_ip = '" . sql_escape_string($ip) . "',
                 sl_datetime = NOW(),
                 sl_url = '" . sql_escape_string($current_page) . "',
                 sl_user_agent = '" . sql_escape_string($user_agent) . "',
                 sl_block_reason = '" . sql_escape_string($block_info['sb_reason']) . "'";
-    
+
     sql_query($sql, false);
 }
 
@@ -180,7 +183,7 @@ function security_log_blocked_access($ip, $block_info) {
 function security_show_blocked_page($block_info, $ip) {
     // HTTP 403 상태 코드 전송
     http_response_code(403);
-    
+
     // 차단 유형 이름
     $block_types = array(
         'manual' => '수동 차단',
@@ -188,17 +191,17 @@ function security_show_blocked_page($block_info, $ip) {
         'auto_spam' => '스팸 행위',
         'auto_abuse' => '악성 행위'
     );
-    
+
     $block_type_name = $block_types[$block_info['sb_block_type']] ?? '자동 차단';
     $reason = htmlspecialchars($block_info['sb_reason']);
     $blocked_time = date('Y-m-d H:i:s', strtotime($block_info['sb_datetime']));
-    
+
     // 차단 종료 시간 (임시 차단인 경우)
     $end_message = '';
     if ($block_info['sb_duration'] == 'temporary' && $block_info['sb_end_datetime']) {
         $end_time = strtotime($block_info['sb_end_datetime']);
         $remaining = $end_time - time();
-        
+
         if ($remaining > 0) {
             $hours = floor($remaining / 3600);
             $minutes = floor(($remaining % 3600) / 60);
@@ -207,7 +210,7 @@ function security_show_blocked_page($block_info, $ip) {
             </p>";
         }
     }
-    
+
     echo "<!DOCTYPE html>
 <html lang=\"ko\">
 <head>
@@ -292,14 +295,14 @@ function security_show_blocked_page($block_info, $ip) {
     <div class=\"block-container\">
         <div class=\"block-icon\">🚫</div>
         <h1 class=\"block-title\">접근이 차단되었습니다</h1>
-        
+
         <div class=\"block-message\">
             귀하의 IP 주소는 보안상의 이유로 이 사이트에 대한 접근이 제한되었습니다.
         </div>
-        
+
         <div class=\"block-info\">
             <div class=\"block-info-item\">
-                <span class=\"block-info-label\">차단 IP:</span> 
+                <span class=\"block-info-label\">차단 IP:</span>
                 <span class=\"ip-address\">{$ip}</span>
             </div>
             <div class=\"block-info-item\">
@@ -312,9 +315,9 @@ function security_show_blocked_page($block_info, $ip) {
                 <span class=\"block-info-label\">차단 일시:</span> {$blocked_time}
             </div>
         </div>
-        
+
         {$end_message}
-        
+
         <div class=\"contact-info\">
             <strong>정당한 이유로 차단된 경우</strong><br>
             사이트 관리자에게 문의하여 차단 해제를 요청하실 수 있습니다.
@@ -322,5 +325,61 @@ function security_show_blocked_page($block_info, $ip) {
     </div>
 </body>
 </html>";
+}
+
+/**
+ * 로그인 차단 여부 확인
+ */
+function gk_is_login_blocked() {
+    global $g5_security_block_levels;
+    return isset($g5_security_block_levels) && in_array('login', $g5_security_block_levels);
+}
+
+/**
+ * 게시글/댓글 작성 차단 여부 확인
+ */
+function gk_is_write_blocked() {
+    global $g5_security_block_levels;
+    return isset($g5_security_block_levels) && in_array('write', $g5_security_block_levels);
+}
+
+/**
+ * 쪽지 작성 차단 여부 확인
+ */
+function gk_is_memo_blocked() {
+    global $g5_security_block_levels;
+    return isset($g5_security_block_levels) && in_array('memo', $g5_security_block_levels);
+}
+
+/**
+ * 차단 정보 가져오기
+ */
+function gk_get_block_info() {
+    global $g5_security_block_info;
+    return isset($g5_security_block_info) ? $g5_security_block_info : null;
+}
+
+// gnuboard5 로그인 페이지에서 차단 처리
+if (gk_is_login_blocked() && basename($_SERVER['SCRIPT_NAME']) == 'login_check.php') {
+    alert('귀하의 IP는 로그인이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
+    exit;
+}
+
+// 게시글/댓글 작성 페이지에서 차단 처리
+if (gk_is_write_blocked()) {
+    $write_pages = ['write.php', 'write_update.php', 'write_comment_update.php'];
+    if (in_array(basename($_SERVER['SCRIPT_NAME']), $write_pages)) {
+        alert('귀하의 IP는 게시글/댓글 작성이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
+        exit;
+    }
+}
+
+// 쪽지 작성 페이지에서 차단 처리
+if (gk_is_memo_blocked()) {
+    $memo_pages = ['memo_form.php', 'memo_form_update.php'];
+    if (in_array(basename($_SERVER['SCRIPT_NAME']), $memo_pages)) {
+        alert('귀하의 IP는 쪽지 작성이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
+        exit;
+    }
 }
 ?>
