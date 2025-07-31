@@ -487,35 +487,50 @@ function gk_is_foreign_write_blocked() {
 }
 
 /**
- * 해외 IP 쪽지 작성 차단 여부 확인
+ * 해외 IP 쪽지 작성 차단 여부 확인 (글쓰기 차단에 포함됨)
  */
 function gk_is_foreign_memo_blocked() {
     global $g5_foreign_block_levels;
-    return isset($g5_foreign_block_levels) && in_array('memo', $g5_foreign_block_levels);
+    return isset($g5_foreign_block_levels) && (in_array('write', $g5_foreign_block_levels) || in_array('memo', $g5_foreign_block_levels));
 }
 
 // 해외 IP 차단 수준별 처리
 if (isset($g5_foreign_block_levels)) {
-    // 로그인 페이지에서 차단
-    if (gk_is_foreign_login_blocked() && basename($_SERVER['SCRIPT_NAME']) == 'login_check.php') {
-        alert('해외 IP는 로그인이 제한됩니다.');
-        exit;
-    }
-
-    // 게시글/댓글 작성 페이지에서 차단
-    if (gk_is_foreign_write_blocked()) {
-        $write_pages = ['write.php', 'write_update.php', 'write_comment_update.php'];
-        if (in_array(basename($_SERVER['SCRIPT_NAME']), $write_pages)) {
-            alert('해외 IP는 게시글/댓글 작성이 제한됩니다.');
+    // 회원가입/로그인 페이지에서 차단
+    if (gk_is_foreign_login_blocked()) {
+        $login_register_pages = [
+            'login_check.php',        // 로그인 처리
+            'register.php',           // 회원가입 폼
+            'register_form_update.php', // 회원가입 처리
+            'register_result.php'     // 회원가입 완료
+        ];
+        if (in_array(basename($_SERVER['SCRIPT_NAME']), $login_register_pages)) {
+            alert('해외 IP는 로그인/회원가입이 제한됩니다.');
             exit;
         }
     }
 
-    // 쪽지 작성 페이지에서 차단
+    // 글쓰기/문의/쪽지 작성 페이지에서 차단
+    if (gk_is_foreign_write_blocked()) {
+        $write_pages = [
+            // 게시글/댓글 작성
+            'write.php', 'write_update.php', 'write_comment_update.php',
+            // 쪽지 작성
+            'memo_form.php', 'memo_form_update.php',
+            // 문의 작성 (qa)
+            'qa_write.php', 'qa_write_update.php'
+        ];
+        if (in_array(basename($_SERVER['SCRIPT_NAME']), $write_pages)) {
+            alert('해외 IP는 글쓰기/문의/쪽지 작성이 제한됩니다.');
+            exit;
+        }
+    }
+
+    // 쪽지 작성 페이지에서 차단 (하위 호환성)
     if (gk_is_foreign_memo_blocked()) {
         $memo_pages = ['memo_form.php', 'memo_form_update.php'];
         if (in_array(basename($_SERVER['SCRIPT_NAME']), $memo_pages)) {
-            alert('해외 IP는 쪽지 작성이 제한됩니다.');
+            alert('해외 IP는 글쓰기/문의/쪽지 작성이 제한됩니다.');
             exit;
         }
     }

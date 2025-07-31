@@ -7,6 +7,7 @@
 # HOME
 !/adm/admin.menu950.php
 !/adm/css/admin.css
+!/adm/css/gk_admin.css
 !/adm/img/menu_shield.png
 !/adm/security_home.php
 
@@ -17,23 +18,16 @@
 !/adm/create_access_control_table.php
 
 # 차단관리
-!/adm/security_block.php
-!/adm/security_block_delete.php
-!/adm/security_block_update.php
-!/adm/security_block.sql
-!/adm/security_block_ip_kr.txt
+!/adm/security_block/
+!/adm/security_block/*
 
 # 정책관리
 !/adm/security_extension.php
 
 # 스팸관리
-!/adm/security_spam.php
-!/adm/security_spam_update.php
-!/adm/security_spam.sql
+!/adm/security_spam/
+!/adm/security_spam/*
 
 # EXTEND
 !/extend/register_access_control.php
-!/extend/security_block_ip_foreign.extend.php
-!/extend/security_block_ip.extend.php
-!/extend/security_common.extend.php
-!/extend/security_detect_spam.extend.php
+!/extend/security_*.extend.php

@@ -344,11 +344,11 @@ function gk_is_write_blocked() {
 }
 
 /**
- * 쪽지 작성 차단 여부 확인
+ * 쪽지 작성 차단 여부 확인 (글쓰기 차단에 포함됨)
  */
 function gk_is_memo_blocked() {
     global $g5_security_block_levels;
-    return isset($g5_security_block_levels) && in_array('memo', $g5_security_block_levels);
+    return isset($g5_security_block_levels) && (in_array('write', $g5_security_block_levels) || in_array('memo', $g5_security_block_levels));
 }
 
 /**
@@ -359,26 +359,41 @@ function gk_get_block_info() {
     return isset($g5_security_block_info) ? $g5_security_block_info : null;
 }
 
-// gnuboard5 로그인 페이지에서 차단 처리
-if (gk_is_login_blocked() && basename($_SERVER['SCRIPT_NAME']) == 'login_check.php') {
-    alert('귀하의 IP는 로그인이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
-    exit;
-}
-
-// 게시글/댓글 작성 페이지에서 차단 처리
-if (gk_is_write_blocked()) {
-    $write_pages = ['write.php', 'write_update.php', 'write_comment_update.php'];
-    if (in_array(basename($_SERVER['SCRIPT_NAME']), $write_pages)) {
-        alert('귀하의 IP는 게시글/댓글 작성이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
+// gnuboard5 회원가입/로그인 페이지에서 차단 처리
+if (gk_is_login_blocked()) {
+    $login_register_pages = [
+        'login_check.php',        // 로그인 처리
+        'register.php',           // 회원가입 폼
+        'register_form_update.php', // 회원가입 처리
+        'register_result.php'     // 회원가입 완료
+    ];
+    if (in_array(basename($_SERVER['SCRIPT_NAME']), $login_register_pages)) {
+        alert('귀하의 IP는 로그인/회원가입이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
         exit;
     }
 }
 
-// 쪽지 작성 페이지에서 차단 처리
+// 글쓰기/문의/쪽지 작성 페이지에서 차단 처리
+if (gk_is_write_blocked()) {
+    $write_pages = [
+        // 게시글/댓글 작성
+        'write.php', 'write_update.php', 'write_comment_update.php',
+        // 쪽지 작성
+        'memo_form.php', 'memo_form_update.php',
+        // 문의 작성 (qa)
+        'qa_write.php', 'qa_write_update.php'
+    ];
+    if (in_array(basename($_SERVER['SCRIPT_NAME']), $write_pages)) {
+        alert('귀하의 IP는 글쓰기/문의/쪽지 작성이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
+        exit;
+    }
+}
+
+// 쪽지 작성 페이지에서 차단 처리 (하위 호환성)
 if (gk_is_memo_blocked()) {
     $memo_pages = ['memo_form.php', 'memo_form_update.php'];
     if (in_array(basename($_SERVER['SCRIPT_NAME']), $memo_pages)) {
-        alert('귀하의 IP는 쪽지 작성이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
+        alert('귀하의 IP는 글쓰기/문의/쪽지 작성이 차단되었습니다.\\n차단 사유: ' . gk_get_block_info()['sb_reason']);
         exit;
     }
 }
