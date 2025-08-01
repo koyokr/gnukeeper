@@ -23,6 +23,11 @@
 
 # 정책관리
 !/adm/security_extension.php
+!/adm/security_section_board.php
+!/adm/security_section_captcha.php
+!/adm/security_section_admin_users.php
+!/adm/security_section_extension.php
+!/adm/security_section_upload.php
 
 # 스팸관리
 !/adm/security_spam/

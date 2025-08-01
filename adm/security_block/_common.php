@@ -1,6 +1,8 @@
 <?php
 $sub_menu = '950300';
-require_once '../_common.php';
+define('G5_IS_ADMIN', true);
+require_once '../../common.php';
+require_once G5_ADMIN_PATH . '/admin.lib.php';
 
 auth_check_menu($auth, $sub_menu, 'r');
 
