@@ -4,15 +4,48 @@ require_once './_common.php';
 
 auth_check_menu($auth, $sub_menu, 'r');
 
-$g5['title'] = '정책관리';
-require_once './admin.head.php';
-
-// AJAX 요청 처리
+// AJAX 요청 처리 (HTML 출력 전에 처리)
 if (isset($_POST['action'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    
     $action = $_POST['action'];
     $bo_table = isset($_POST['bo_table']) ? $_POST['bo_table'] : '';
     
     switch ($action) {
+        case 'fix_member_level':
+            // 모든 권한을 회원 레벨로 설정
+            if ($bo_table) {
+                $level = isset($_POST['level']) ? intval($_POST['level']) : 2;
+                $update_sql = "UPDATE {$g5['board_table']} SET 
+                              bo_list_level = $level,
+                              bo_read_level = $level, 
+                              bo_write_level = $level, 
+                              bo_reply_level = $level, 
+                              bo_comment_level = $level, 
+                              bo_link_level = $level, 
+                              bo_upload_level = $level, 
+                              bo_download_level = $level, 
+                              bo_html_level = $level 
+                              WHERE bo_table = '$bo_table'";
+                sql_query($update_sql);
+                
+                // 예외 목록에서 제거
+                $config_sql = "SELECT cf_1 FROM {$g5['config_table']}";
+                $config_result = sql_fetch($config_sql);
+                $exceptions = isset($config_result['cf_1']) ? $config_result['cf_1'] : '';
+                $exception_list = explode('|', $exceptions);
+                $exception_list = array_filter($exception_list, function($item) use ($bo_table) {
+                    return trim($item) !== $bo_table;
+                });
+                $new_exceptions = implode('|', $exception_list);
+                
+                $update_config_sql = "UPDATE {$g5['config_table']} SET cf_1 = '$new_exceptions'";
+                sql_query($update_config_sql);
+                
+                echo json_encode(['success' => true, 'message' => '모든 권한이 회원 레벨(' . $level . ')로 수정되었습니다.']);
+            }
+            break;
+            
         case 'except_read_admin':
             // 읽기 외 권한을 관리자로 설정하고 읽기 권한은 비회원(1)로 설정
             if ($bo_table) {
@@ -47,12 +80,12 @@ if (isset($_POST['action'])) {
             break;
             
         case 'except_write_admin':
-            // 쓰기 외 권한을 관리자로 설정하고 쓰기 권한은 비회원(1)로 설정 안 함
+            // 쓰기는 비회원(1)으로, 나머지 권한은 관리자(10)로 설정
             if ($bo_table) {
                 $update_sql = "UPDATE {$g5['board_table']} SET 
                               bo_list_level = 10,
                               bo_read_level = 10, 
-                              bo_write_level = 10, 
+                              bo_write_level = 1, 
                               bo_reply_level = 10, 
                               bo_comment_level = 10, 
                               bo_link_level = 10, 
@@ -75,29 +108,46 @@ if (isset($_POST['action'])) {
                 $update_config_sql = "UPDATE {$g5['config_table']} SET cf_1 = '$new_exceptions'";
                 sql_query($update_config_sql);
                 
-                echo json_encode(['success' => true, 'message' => '비회원 쓰기 및 쓰기 외 권한 관리자 권한으로 수정되었습니다.']);
+                echo json_encode(['success' => true, 'message' => '비회원 쓰기 권한으로 설정되었습니다. (쓰기: 비회원, 나머지: 관리자)']);
             }
             break;
             
         case 'except_board':
             if ($bo_table) {
-                // 예외 목록에 추가
-                $config_sql = "SELECT cf_1 FROM {$g5['config_table']}";
-                $config_result = sql_fetch($config_sql);
-                $exceptions = isset($config_result['cf_1']) ? $config_result['cf_1'] : '';
-                
-                $exception_list = array_filter(explode('|', $exceptions));
-                if (!in_array($bo_table, $exception_list)) {
-                    $exception_list[] = $bo_table;
+                try {
+                    // 예외 목록 토글 (추가/제거)
+                    $config_sql = "SELECT cf_1 FROM {$g5['config_table']}";
+                    $config_result = sql_fetch($config_sql);
+                    $exceptions = isset($config_result['cf_1']) ? $config_result['cf_1'] : '';
+                    
+                    $exception_list = array_filter(explode('|', $exceptions));
+                    
+                    if (in_array($bo_table, $exception_list)) {
+                        // 예외 목록에서 제거
+                        $exception_list = array_filter($exception_list, function($item) use ($bo_table) {
+                            return trim($item) !== $bo_table;
+                        });
+                        $message = '예외 처리가 해제되었습니다.';
+                    } else {
+                        // 예외 목록에 추가
+                        $exception_list[] = $bo_table;
+                        $message = '게시판이 예외 처리되었습니다.';
+                    }
+                    
                     $new_exceptions = implode('|', $exception_list);
-                    
                     $update_sql = "UPDATE {$g5['config_table']} SET cf_1 = '$new_exceptions'";
-                    sql_query($update_sql);
+                    $result = sql_query($update_sql);
                     
-                    echo json_encode(['success' => true, 'message' => '게시판이 예외 처리되었습니다.']);
-                } else {
-                    echo json_encode(['success' => false, 'message' => '이미 예외 처리된 게시판입니다.']);
+                    if ($result) {
+                        echo json_encode(['success' => true, 'message' => $message]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => '데이터베이스 업데이트 실패']);
+                    }
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => '처리 중 오류가 발생했습니다: ' . $e->getMessage()]);
                 }
+            } else {
+                echo json_encode(['success' => false, 'message' => '게시판 정보가 없습니다.']);
             }
             break;
             
@@ -222,6 +272,9 @@ if (isset($_POST['action'])) {
     }
     exit;
 }
+
+$g5['title'] = '정책관리';
+require_once './admin.head.php';
 ?>
 
 <style>
@@ -235,7 +288,7 @@ if (isset($_POST['action'])) {
 }
 
 .section-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
     color: white;
     padding: 18px 25px;
     font-size: 18px;
@@ -246,7 +299,7 @@ if (isset($_POST['action'])) {
 }
 
 .section-header:hover {
-    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
 }
 
 .section-content {
@@ -259,14 +312,15 @@ if (isset($_POST['action'])) {
 }
 
 .info-highlight {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
+    background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+    color: #374151;
     padding: 15px 20px;
     border-radius: 8px;
     margin-bottom: 25px;
     font-weight: 500;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(240, 147, 251, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #d1d5db;
 }
 
 .boards-container {
@@ -288,18 +342,18 @@ if (isset($_POST['action'])) {
 }
 
 .board-item.safe {
-    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-    border-color: #c3e6cb;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-color: #bae6fd;
 }
 
 .board-item.danger {
-    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-    border-color: #f5c6cb;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fecaca;
 }
 
 .board-item.exception {
-    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-    border-color: #ffeaa7;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fde68a;
 }
 
 .board-actions {
@@ -447,12 +501,54 @@ if (isset($_POST['action'])) {
     background: #f8d7da;
     border: 1px solid #f5c6cb;
 }
+
+/* 툴팁 스타일 */
+.btn-with-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-right: 3px;
+}
+
+.btn-with-tooltip .tooltip-message {
+    visibility: hidden;
+    background-color: #333;
+    color: white;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    width: 200px;
+    font-size: 12px;
+    line-height: 1.4;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.btn-with-tooltip .tooltip-message::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+}
+
+.btn-with-tooltip:hover .tooltip-message {
+    visibility: visible;
+    opacity: 1;
+}
 </style>
 
 <!-- 보안 설정 -->
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; text-align: center; box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);">
-    <h1 style="margin: 0; font-size: 32px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🛡️ 정책 관리</h1>
-    <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.95;">사이트 보안 정책을 통합 관리합니다</p>
+<div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #1f2937; padding: 30px; border-radius: 12px; margin-bottom: 30px; text-align: center; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb;">
+    <h1 style="margin: 0; font-size: 32px; font-weight: 700; color: #374151;">🛡️ 정책 관리</h1>
+    <p style="margin: 10px 0 0 0; font-size: 16px; color: #6b7280;">사이트 보안 정책을 통합 관리합니다</p>
 </div>
 
 <?php 
@@ -506,11 +602,106 @@ function updateBoardSecurity(action, boTable) {
     });
 }
 
+// 게시판 권한 업데이트 함수
+function updateBoardPermissions(boTable, action, level) {
+    let confirmMessage = '';
+    let actionName = '';
+    
+    switch(action) {
+        case 'fix_member_level':
+            confirmMessage = `게시판 "${boTable}"의 모든 권한을 회원 레벨(${level})로 변경하시겠습니까?`;
+            actionName = 'fix_member_level';
+            break;
+        case 'except_write_admin':
+            confirmMessage = `게시판 "${boTable}"을 비회원 쓰기 권한으로 설정하시겠습니까?\n(쓰기: 비회원, 나머지: 관리자)`;
+            actionName = 'except_write_admin';
+            break;
+        case 'except_read_admin':
+            confirmMessage = `게시판 "${boTable}"을 비회원 읽기 권한으로 설정하시겠습니까?\n(목록/읽기: 비회원, 나머지: 관리자)`;
+            actionName = 'except_read_admin';
+            break;
+    }
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('action', actionName);
+    formData.append('bo_table', boTable);
+    if (level) {
+        formData.append('level', level);
+    }
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data); // 디버깅용
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('오류가 발생했습니다: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error details:', error);
+        alert('요청 처리 중 오류가 발생했습니다: ' + error.message);
+    });
+}
+
+// 게시판 예외 처리 토글
+function toggleBoardException(boTable) {
+    if (!confirm(`게시판 "${boTable}"의 예외 처리 상태를 변경하시겠습니까?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('action', 'except_board');
+    formData.append('bo_table', boTable);
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data); // 디버깅용
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('오류가 발생했습니다: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error details:', error);
+        alert('요청 처리 중 오류가 발생했습니다: ' + error.message);
+    });
+}
+
 function toggleCaptchaException(boTable) {
     updateBoardSecurity('toggle_captcha_exception', boTable);
 }
 
 function enableCaptcha(boTable) {
+    updateBoardSecurity('enable_captcha', boTable);
+}
+
+function applyCaptcha(boTable) {
     updateBoardSecurity('enable_captcha', boTable);
 }
 

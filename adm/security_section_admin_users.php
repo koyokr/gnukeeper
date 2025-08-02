@@ -15,15 +15,21 @@ $admin_users_sql = "SELECT mb_id, mb_name, mb_nick, mb_level, mb_today_login, mb
 $admin_users_result = sql_query($admin_users_sql);
 
 $admin_users = array();
+$all_admin_users = array();
 while ($user = sql_fetch_array($admin_users_result)) {
-    $admin_users[] = $user;
+    $all_admin_users[] = $user;
+    // 최고관리자(admin) 제외하고 목록에 추가
+    if ($user['mb_id'] !== 'admin') {
+        $admin_users[] = $user;
+    }
 }
 
-$admin_user_count = count($admin_users);
+$admin_user_count = count($admin_users); // admin 제외한 관리자급 사용자 수
+$all_admin_count = count($all_admin_users); // admin 포함한 전체 관리자급 사용자 수
 $super_admin_count = 0;
 $high_level_count = 0;
 
-foreach ($admin_users as $user) {
+foreach ($all_admin_users as $user) {
     if ($user['mb_level'] >= 10) {
         $high_level_count++;
     }
@@ -43,7 +49,7 @@ foreach ($admin_users as $user) {
             관리자급 권한(레벨 10 이상)을 보유한 사용자를 확인하고 관리합니다.
         </div>
         
-        <?php if ($admin_user_count > 1): ?>
+        <?php if ($admin_user_count > 0): ?>
         <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
             <div style="color: #dc2626; font-weight: bold; margin-bottom: 8px;">⚠️ 관리자급 권한 사용자 발견</div>
             <div style="color: #666; font-size: 13px;">
@@ -53,14 +59,14 @@ foreach ($admin_users as $user) {
         </div>
         <?php endif; ?>
         
-        <?php if (count($admin_users) > 0): ?>
+        <?php if ($admin_user_count > 0): ?>
         <div class="extension-container">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <div>
                     <span style="font-weight: bold; font-size: 16px; color: #333;">관리자급 권한 보유 사용자 목록</span>
-                    <?php if ($high_level_count > 1): ?>
+                    <?php if ($admin_user_count > 0): ?>
                     <span style="background: #dc2626; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px; font-weight: bold;">
-                        위험 <?php echo $high_level_count; ?>명
+                        위험 <?php echo $admin_user_count; ?>명
                     </span>
                     <?php endif; ?>
                 </div>
@@ -145,10 +151,10 @@ foreach ($admin_users as $user) {
         <?php else: ?>
         <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 20px 0;">
             <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
-                ✅ 관리자급 권한 사용자가 없습니다.
+                ✅ 관리자급 권한 보유 사용자가 없습니다.
             </p>
             <p style="margin: 10px 0; font-size: 16px; color: #155724;">
-                현재 적절한 권한 관리가 이루어지고 있습니다.
+                현재 적절한 권한 관리가 이루어지고 있어 보안상 안전한 상태입니다.
             </p>
         </div>
         <?php endif; ?>
