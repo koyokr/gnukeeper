@@ -151,8 +151,8 @@ function analyzeBoardSecurity($board, $default_member_level, $exception_boards) 
 
 <!-- 게시판 접근 권한 정책 -->
 <div class="dashboard-section">
-    <div class="section-header" onclick="toggleSection('board-section')" style="cursor: pointer;">
-        🔐 게시판 접근 권한 정책 <span id="board-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+    <div class="section-header" onclick="toggleSection('board-section')">
+        🔐 게시판 접근 권한 정책 <span id="board-toggle">▶</span>
     </div>
     <div class="section-content" id="board-section">
         <div class="info-highlight">

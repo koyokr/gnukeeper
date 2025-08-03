@@ -48,8 +48,8 @@ if ($global_is_high_risk) {
 
 <!-- 업로드 용량 정책 -->
 <div class="dashboard-section">
-    <div class="section-header" onclick="toggleSection('upload-policy-section')" style="cursor: pointer;">
-        📁 업로드 용량 정책 <span id="upload-policy-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+    <div class="section-header" onclick="toggleSection('upload-policy-section')">
+        📁 업로드 용량 정책 <span id="upload-policy-toggle">▶</span>
     </div>
     <div class="section-content" id="upload-policy-section">
         <div class="info-highlight">

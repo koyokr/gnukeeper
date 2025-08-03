@@ -41,8 +41,8 @@ foreach ($all_admin_users as $user) {
 
 <!-- 관리자급 권한 보유 사용자 관리 -->
 <div class="dashboard-section">
-    <div class="section-header" onclick="toggleSection('admin-users-section')" style="cursor: pointer;">
-        👥 관리자급 권한 보유 사용자 관리 <span id="admin-users-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+    <div class="section-header" onclick="toggleSection('admin-users-section')">
+        👥 관리자급 권한 보유 사용자 관리 <span id="admin-users-toggle">▶</span>
     </div>
     <div class="section-content" id="admin-users-section">
         <div class="info-highlight">

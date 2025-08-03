@@ -147,6 +147,7 @@ function create_default_access_controls() {
 }
 ?>
 
+<link rel="stylesheet" href="./security_common.css">
 <style>
 * {
     box-sizing: border-box;
@@ -191,23 +192,7 @@ body {
     border: 1px solid #ddd;
 }
 
-.section-header {
-    background: #f8f9fa;
-    padding: 15px 20px;
-    border-bottom: 1px solid #ddd;
-    font-weight: bold;
-    font-size: 16px;
-    color: #333;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.section-header:hover {
-    background: #e9ecef;
-}
+/* section-header는 security_common.css에서 정의됨 */
 
 .section-content {
     padding: 0;

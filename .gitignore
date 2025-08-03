@@ -10,6 +10,7 @@
 !/adm/css/gk_admin.css
 !/adm/img/menu_shield.png
 !/adm/security_home.php
+!/adm/security_common.css
 
 # 접근제어
 !/adm/access_control.php

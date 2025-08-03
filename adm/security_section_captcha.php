@@ -42,8 +42,8 @@ if (!$global_captcha) {
 
 <!-- 캡챠 적용 정책 -->
 <div class="dashboard-section">
-    <div class="section-header" onclick="toggleSection('captcha-policy-section')" style="cursor: pointer;">
-        🤖 캡챠 적용 정책 <span id="captcha-policy-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+    <div class="section-header" onclick="toggleSection('captcha-policy-section')">
+        🤖 캡챠 적용 정책 <span id="captcha-policy-toggle">▶</span>
     </div>
     <div class="section-content" id="captcha-policy-section">
         <div class="info-highlight">

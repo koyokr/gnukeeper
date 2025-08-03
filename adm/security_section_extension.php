@@ -184,8 +184,8 @@ $security_grade = getOverallSecurityGrade($analysis);
 
 <!-- 확장자 정책 관리 -->
 <div class="dashboard-section">
-    <div class="section-header" onclick="toggleSection('extension-section')" style="cursor: pointer;">
-        📁 확장자 정책 관리 <span id="extension-toggle" style="float: right; transition: transform 0.3s ease;">▶</span>
+    <div class="section-header" onclick="toggleSection('extension-section')">
+        📁 확장자 정책 관리 <span id="extension-toggle">▶</span>
     </div>
     <div class="section-content" id="extension-section">
         <div class="info-highlight">
