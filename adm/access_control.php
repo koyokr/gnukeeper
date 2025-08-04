@@ -194,20 +194,22 @@ body {
 
 /* section-header는 security_common.css에서 정의됨 */
 
-.section-content {
+/* 접근제어 페이지 전용 section-content 스타일 */
+.access-control-container .section-content {
     padding: 0;
+    display: none;
     overflow: hidden;
-    transition: max-height 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), 
-                opacity 0.3s ease,
-                padding 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
     max-height: 0;
     opacity: 0;
 }
 
-.section-content.expanded {
-    max-height: 2000px;
+.access-control-container .section-content.expanded {
+    display: block;
+    max-height: none;
     opacity: 1;
     padding: 0;
+    overflow: visible;
 }
 
 .access-item {
