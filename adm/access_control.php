@@ -165,24 +165,7 @@ body {
     padding: 20px;
 }
 
-.dashboard-title {
-    color: #1a202c;
-    margin-bottom: 20px;
-    font-size: 32px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.dashboard-subtitle {
-    color: #718096;
-    font-size: 18px;
-    margin-bottom: 30px;
-    font-weight: 400;
-    line-height: 1.6;
-}
+/* dashboard-title과 dashboard-subtitle은 security_common.css에서 정의됨 */
 
 .access-section {
     margin-bottom: 30px;

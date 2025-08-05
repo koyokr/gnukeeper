@@ -279,9 +279,13 @@ require_once './admin.head.php';
 
 <link rel="stylesheet" href="./security_common.css">
 
-<div class="page-title">
-    <h1>🛡️ 정책 관리</h1>
-    <p>사이트 보안 정책을 통합 관리합니다</p>
+<div style="max-width: 1400px; margin: 0 auto; padding: 20px;">
+    <h1 class="dashboard-title">
+        🛡️ 정책 관리
+    </h1>
+    <p class="dashboard-subtitle">
+        사이트 보안 정책을 통합 관리합니다
+    </p>
 </div>
 
 <?php 
