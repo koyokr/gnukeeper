@@ -149,7 +149,7 @@ foreach ($all_admin_users as $user) {
             </div>
         </div>
         <?php else: ?>
-        <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 20px 0;">
+        <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 0 20px 20px 20px;">
             <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
                 ✅ 관리자급 권한 보유 사용자가 없습니다.
             </p>

@@ -279,23 +279,23 @@ require_once './admin.head.php';
 
 <link rel="stylesheet" href="./security_common.css">
 
-<div style="max-width: 1400px; margin: 0 auto; padding: 20px;">
+<div class="policy-management-container">
     <h1 class="dashboard-title">
         🛡️ 정책 관리
     </h1>
     <p class="dashboard-subtitle">
         사이트 보안 정책을 통합 관리합니다
     </p>
-</div>
 
-<?php 
-// 각 섹션을 원하는 순서로 include
-include_once 'security_section_board.php';      // 게시판 접근 권한
-include_once 'security_section_captcha.php';    // 캡챠 적용 정책  
-include_once 'security_section_admin_users.php'; // 관리자급 권한
-include_once 'security_section_extension.php';   // 확장자 정책
-include_once 'security_section_upload.php';      // 업로드 용량
-?>
+    <?php 
+    // 각 섹션을 원하는 순서로 include
+    include_once 'security_section_board.php';      // 게시판 접근 권한
+    include_once 'security_section_captcha.php';    // 캡챠 적용 정책  
+    include_once 'security_section_admin_users.php'; // 관리자급 권한
+    include_once 'security_section_extension.php';   // 확장자 정책
+    include_once 'security_section_upload.php';      // 업로드 용량
+    ?>
+</div>
 
 <script>
 function toggleSection(sectionId) {
@@ -486,8 +486,9 @@ function toggleUploadException(boTable) {
     updateBoardSecurity('toggle_upload_exception', boTable);
 }
 
-// 전체 선택 기능
+// 전체 선택 기능 및 자동 섹션 펼치기
 document.addEventListener('DOMContentLoaded', function() {
+    // 전체 선택 기능
     const selectAllCheckbox = document.getElementById('select-all-admin-users');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
@@ -497,6 +498,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+    
+    // 접근제어와 동일한 자동 섹션 펼치기 기능
+    const sections = document.querySelectorAll('.dashboard-section');
+    sections.forEach((section, index) => {
+        section.style.opacity = '0';
+        section.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            section.style.transition = 'all 0.5s ease';
+            section.style.opacity = '1';
+            section.style.transform = 'translateY(0)';
+            
+            // 각 섹션을 순차적으로 펼치기
+            setTimeout(() => {
+                const sectionContent = section.querySelector('.section-content');
+                const toggle = section.querySelector('[id$="-toggle"]');
+                if (sectionContent && toggle) {
+                    sectionContent.classList.add('show');
+                    toggle.textContent = '▼';
+                    toggle.style.transform = 'rotate(90deg)';
+                }
+            }, 500);
+        }, index * 100);
+    });
 });
 </script>
 

@@ -152,7 +152,7 @@ if ($global_is_high_risk) {
             </div>
         </div>
         <?php else: ?>
-        <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 20px 0;">
+        <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 0 20px 20px 20px;">
             <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
                 ✅ 업로드가 허용된 게시판이 없습니다.
             </p>

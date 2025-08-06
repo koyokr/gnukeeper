@@ -198,7 +198,7 @@ $security_grade = getOverallSecurityGrade($analysis);
                 <span style="font-weight: bold; font-size: 16px; color: #333;">허용된 확장자 목록</span>
             </div>
             <?php if (empty($analysis['extensions'])): ?>
-            <p style="color: #666; padding: 15px; background: #f8f9fa; border-radius: 4px; margin-top: 10px;">
+            <p style="color: #666; padding: 15px; background: #f8f9fa; border-radius: 4px; margin: 10px 20px 20px 20px;">
                 허용된 확장자가 없습니다.
             </p>
             <?php else: ?>
