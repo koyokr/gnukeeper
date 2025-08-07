@@ -40,16 +40,6 @@ $foreign_block_enabled = gk_get_config('foreign_block_enabled', '0');
 </div>
 
 
-<!-- 예외 IP 관리 섹션 -->
-<div class="dashboard-section">
-    <div class="section-header" onclick="toggleSection('whitelist-section')">
-        ✅ 예외 IP 설정 <span id="whitelist-toggle">▼</span>
-    </div>
-    <div class="section-content expanded" id="whitelist-section">
-        <?php include './section_whitelist.php'; ?>
-    </div>
-</div>
-
 <!-- IP 차단 관리 섹션 -->
 <div class="dashboard-section">
     <div class="section-header" onclick="toggleSection('block-section')">
@@ -67,6 +57,16 @@ $foreign_block_enabled = gk_get_config('foreign_block_enabled', '0');
     </div>
     <div class="section-content expanded" id="foreign-section">
         <?php include './section_foreign.php'; ?>
+    </div>
+</div>
+
+<!-- 예외 IP 관리 섹션 -->
+<div class="dashboard-section">
+    <div class="section-header" onclick="toggleSection('whitelist-section')">
+        ✅ 예외 IP 설정 <span id="whitelist-toggle">▼</span>
+    </div>
+    <div class="section-content expanded" id="whitelist-section">
+        <?php include './section_whitelist.php'; ?>
     </div>
 </div>
 
