@@ -4,11 +4,16 @@ require_once './_common.php';
 $g5['title'] = '차단 관리';
 include_once(G5_ADMIN_PATH.'/admin.head.php');
 
-// 차단 통계 데이터 계산
-$active_blocks_count = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_block WHERE sb_status = 'active'")['cnt'] ?? 0;
-$expired_blocks_count = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_block WHERE sb_status = 'expired'")['cnt'] ?? 0;
+// 그누보드 기본 IP 차단 설정에서 통계 데이터 계산
+$blocked_ips_raw = isset($config['cf_intercept_ip']) ? $config['cf_intercept_ip'] : '';
+$blocked_ips = array_filter(array_map('trim', explode("\n", $blocked_ips_raw)));
+$active_blocks_count = count($blocked_ips);
+
+// 예외 IP는 별도 테이블에서 관리 (기존 유지)
 $whitelist_count = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist WHERE sw_status = 'active'")['cnt'] ?? 0;
-$today_blocks_count = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_block WHERE DATE(sb_datetime) = CURDATE()")['cnt'] ?? 0;
+
+// 오늘 차단된 IP는 그누보드 기본 설정에서는 추적하지 않으므로 0으로 설정
+$today_blocks_count = 0;
 
 // 해외 IP 차단 설정값 로드
 $foreign_block_enabled = gk_get_config('foreign_block_enabled', '0');
@@ -29,8 +34,8 @@ $foreign_block_enabled = gk_get_config('foreign_block_enabled', '0');
             <div class="overview-label">예외 IP</div>
         </div>
         <div class="overview-item">
-            <div class="overview-number"><?php echo number_format($today_blocks_count); ?></div>
-            <div class="overview-label">오늘 차단 (24시간)</div>
+            <div class="overview-number"><?php echo $active_blocks_count > 0 ? 'ON' : 'OFF'; ?></div>
+            <div class="overview-label">IP 차단 활성화</div>
         </div>
         <div class="overview-item">
             <div class="overview-number"><?php echo $foreign_block_enabled == '1' ? 'ON' : 'OFF'; ?></div>
