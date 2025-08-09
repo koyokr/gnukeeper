@@ -2,6 +2,9 @@
 require_once './_common.php';
 if (!defined('_GNUBOARD_')) exit;
 
+// 차단 사유 관리 클래스 포함
+require_once './security_ip_block_reasons.php';
+
 // JSON 응답을 위한 헤더 설정
 header('Content-Type: application/json; charset=utf-8');
 
@@ -25,10 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             // 관리자 IP 보호
-            if ($block_ip === $current_admin_ip || strpos($block_ip, '*') !== false) {
-                // 와일드카드 체크
-                $pattern = str_replace('*', '([0-9\.]*)', $block_ip);
-                if (preg_match('/' . $pattern . '/', $current_admin_ip)) {
+            if ($block_ip === $current_admin_ip || strpos($block_ip, '+') !== false) {
+                // 와일드카드 체크 (그누보드 방식 적용)
+                $pattern = str_replace(".", "\.", $block_ip);
+                $pattern = str_replace("+", "[0-9\.]+", $pattern);
+                $pat = "/^{$pattern}$/";
+                if (preg_match($pat, $current_admin_ip)) {
                     echo json_encode(['success' => false, 'message' => '관리자 IP는 차단할 수 없습니다.']);
                     exit;
                 }
@@ -51,6 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // 그누보드 설정 업데이트
             $sql = "UPDATE {$g5['config_table']} SET cf_intercept_ip = '" . sql_escape_string($new_block_list) . "'";
             if (sql_query($sql)) {
+                // 차단 사유 저장 (확장 테이블에)
+                if (!empty($block_reason)) {
+                    GK_IPBlockReasons::saveReason($block_ip, $block_reason, 'manual');
+                }
                 echo json_encode(['success' => true, 'message' => 'IP가 차단되었습니다.']);
             } else {
                 echo json_encode(['success' => false, 'message' => '차단 설정 저장에 실패했습니다.']);
@@ -79,6 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // 그누보드 설정 업데이트
             $sql = "UPDATE {$g5['config_table']} SET cf_intercept_ip = '" . sql_escape_string($new_block_list) . "'";
             if (sql_query($sql)) {
+                // 확장 테이블에서도 사유 삭제
+                GK_IPBlockReasons::deleteReason($remove_ip);
                 echo json_encode(['success' => true, 'message' => 'IP 차단이 해제되었습니다.']);
             } else {
                 echo json_encode(['success' => false, 'message' => '차단 해제에 실패했습니다.']);
@@ -86,9 +97,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             break;
             
         case 'clear_all':
+            // 현재 차단된 모든 IP 목록 가져오기 (사유 삭제용)
+            $current_blocks = isset($config['cf_intercept_ip']) ? $config['cf_intercept_ip'] : '';
+            $blocked_ips = array_filter(array_map('trim', explode("\n", $current_blocks)));
+            
             // 모든 차단 해제
             $sql = "UPDATE {$g5['config_table']} SET cf_intercept_ip = ''";
             if (sql_query($sql)) {
+                // 모든 사유도 삭제
+                foreach ($blocked_ips as $ip) {
+                    GK_IPBlockReasons::deleteReason($ip);
+                }
                 echo json_encode(['success' => true, 'message' => '모든 IP 차단이 해제되었습니다.']);
             } else {
                 echo json_encode(['success' => false, 'message' => '전체 차단 해제에 실패했습니다.']);
@@ -103,9 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $new_block_list = array_filter(array_map('trim', explode("\n", $new_blocks)));
             
             foreach ($new_block_list as $ip) {
-                if ($ip === $admin_ip || strpos($ip, '*') !== false) {
-                    $pattern = str_replace('*', '([0-9\.]*)', $ip);
-                    if (preg_match('/' . $pattern . '/', $admin_ip)) {
+                if ($ip === $admin_ip || strpos($ip, '+') !== false) {
+                    $pattern = str_replace(".", "\.", $ip);
+                    $pattern = str_replace("+", "[0-9\.]+", $pattern);
+                    $pat = "/^{$pattern}$/";
+                    if (preg_match($pat, $admin_ip)) {
                         echo json_encode(['success' => false, 'message' => '관리자 IP가 포함된 차단 규칙이 있습니다.']);
                         exit;
                     }

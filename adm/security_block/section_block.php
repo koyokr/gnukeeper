@@ -3,12 +3,18 @@ if (!defined('_GNUBOARD_')) {
     require_once './_common.php';
 }
 
+// 차단 사유 관리 클래스 포함
+require_once './security_ip_block_reasons.php';
+
 // 현재 접속 IP 가져오기
 $current_admin_ip = $_SERVER['REMOTE_ADDR'];
 
 // 그누보드 기본 IP 차단 설정 가져오기
 $blocked_ips_raw = isset($config['cf_intercept_ip']) ? $config['cf_intercept_ip'] : '';
 $blocked_ips = array_filter(array_map('trim', explode("\n", $blocked_ips_raw)));
+
+// 모든 차단 사유 조회
+$block_reasons = GK_IPBlockReasons::getAllReasons();
 
 ?>
 
@@ -28,8 +34,8 @@ $blocked_ips = array_filter(array_map('trim', explode("\n", $blocked_ips_raw)));
         <div style="display: grid; grid-template-columns: 2fr 3fr auto; gap: 15px; align-items: start;">
             <div class="form-group">
                 <label class="form-label">차단할 IP 주소</label>
-                <input type="text" name="block_ip" class="form-input" placeholder="예: 192.168.1.100 또는 192.168.1.*" required>
-                <div class="form-help">와일드카드(*) 사용 가능: 192.168.1.*</div>
+                <input type="text" name="block_ip" class="form-input" placeholder="예: 192.168.1.100 또는 192.168.1.+" required>
+                <div class="form-help">와일드카드(+) 사용 가능: 192.168.1.+</div>
             </div>
             <div class="form-group">
                 <label class="form-label">차단 사유 (선택사항)</label>
@@ -47,17 +53,14 @@ $blocked_ips = array_filter(array_map('trim', explode("\n", $blocked_ips_raw)));
 <div class="extension-container">
     <div style="margin-bottom: 15px;">
         <span style="font-weight: bold; font-size: 16px; color: #333;">현재 차단된 IP 목록</span>
-        <span style="background: #dc2626; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px; font-weight: bold;">
-            <?php echo count($blocked_ips); ?>개
-        </span>
     </div>
     
     <?php if (empty($blocked_ips)): ?>
-    <div style="text-align: center; padding: 50px 20px; background: #f0f9f0; border: 1px solid #d4edda; border-radius: 5px; margin: 0 20px 20px 20px;">
-        <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #28a745;">
-            ✅ 차단된 IP가 없습니다.
+    <div style="text-align: center; padding: 50px 20px; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 5px; margin: 0 20px 20px 20px;">
+        <p style="margin: 10px 0; font-size: 18px; font-weight: bold; color: #1976d2;">
+            차단된 IP가 없습니다.
         </p>
-        <p style="margin: 10px 0; font-size: 16px; color: #155724;">
+        <p style="margin: 10px 0; font-size: 16px; color: #1565c0;">
             현재 모든 IP에서 사이트 접속이 가능합니다.
         </p>
     </div>
@@ -67,16 +70,33 @@ $blocked_ips = array_filter(array_map('trim', explode("\n", $blocked_ips_raw)));
         <tr>
             <th>차단된 IP 주소</th>
             <th>차단 사유</th>
-            <th>액션</th>
+            <th>등록일</th>
+            <th>처리</th>
         </tr>
     </thead>
     <tbody>
         <?php foreach ($blocked_ips as $index => $ip): ?>
+        <?php 
+        // 등록일 조회 (확장 테이블에서)
+        $register_date = '';
+        if (class_exists('GK_IPBlockReasons')) {
+            $block_info = GK_IPBlockReasons::getBlockInfo($ip);
+            $register_date = $block_info ? substr($block_info['sb_datetime'], 0, 16) : '';
+        }
+        ?>
         <tr>
             <td>
                 <span class="ip-address"><?php echo htmlspecialchars($ip); ?></span>
             </td>
-            <td>-</td>
+            <td>
+                <?php 
+                $reason = isset($block_reasons[$ip]) ? $block_reasons[$ip] : '';
+                echo $reason ? htmlspecialchars($reason) : '<span style="color: #999;">사유 없음</span>';
+                ?>
+            </td>
+            <td>
+                <?php echo $register_date ? $register_date : '<span style="color: #999;">-</span>'; ?>
+            </td>
             <td>
                 <button type="button" class="btn-danger" onclick="removeBlockedIP('<?php echo htmlspecialchars($ip); ?>')">
                     삭제

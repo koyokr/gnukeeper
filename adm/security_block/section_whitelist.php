@@ -48,7 +48,7 @@ if ($whitelist_count_result && $row = sql_fetch_array($whitelist_count_result)) 
                 <div class="form-help">차단에서 제외할 IP를 입력하세요</div>
             </div>
             <div class="form-group">
-                <label class="form-label">메모</label>
+                <label class="form-label">예외 사유 (선택사항)</label>
                 <input type="text" name="whitelist_memo" class="form-input" placeholder="설명을 입력하세요 (선택사항)">
                 <div class="form-help">관리를 위한 설명을 입력하세요</div>
             </div>
@@ -64,9 +64,9 @@ if ($whitelist_count_result && $row = sql_fetch_array($whitelist_count_result)) 
     <thead>
         <tr>
             <th>IP 주소</th>
-            <th>메모</th>
+            <th>예외 사유</th>
             <th>등록일</th>
-            <th>액션</th>
+            <th>처리</th>
         </tr>
     </thead>
     <tbody>
