@@ -5,10 +5,6 @@
 Purpose: Develop a comprehensive security plugin for gnuboard5
 Concept: Enable general users to easily protect their sites, similar to WordPress security plugins
 
-Development Approach:
-- Admin interface: Add directly to `/adm/` directory
-- Security logic: Add to `extend/` directory (auto-loaded)
-
 ## Development Rules
 
 ### Basic Rules
@@ -19,7 +15,7 @@ Development Approach:
 
 ### Naming Conventions
 - Functions: `gk_` prefix (e.g., `gk_parse_cidr()`, `gk_set_config()`)
-- Classes: `GK_` prefix (e.g., `GK_SecurityManager`, `GK_IPBlocker`)
+- Classes: `GK_` prefix (e.g., `GK_BlockManager`, `GK_SpamDetector`)
 - Constants: `GK_` prefix (e.g., `GK_VERSION`, `GK_PLUGIN_PATH`)
 - Tables: `g5_security_*` format
 - Menu codes: Use 950000 series
@@ -31,11 +27,11 @@ Development Approach:
 - Forbidden: HTTP header-based IP extraction (`X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`, etc.)
 - Reason: Client-manipulatable headers are not trustworthy for security
 
-#### Function Design and Performance
-- No excessive abstraction: Don't create wrappers for things PHP built-in functions can handle
+#### Performance and Design
 - Optimize extend files: Must be lightweight as they load on every page
 - Static caching: Cache DB query results with `static` variables
-- Early return: Use immediate `return` when conditions are not met to prevent unnecessary processing
+- Early return: Use immediate `return` when conditions are not met
+- Function existence check: Use `!function_exists()` to prevent redeclaration
 
 #### Data Validation
 - IP validation: Use `filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)`
@@ -43,156 +39,114 @@ Development Approach:
 - SQL injection prevention: Use gnuboard5's `sql_escape_string()` function
 - XSS prevention: Use `htmlspecialchars()`
 
-## Key Features
+## Architecture (Current State)
 
-### 1. Block Management
+### Hybrid Plugin Structure
+- **extend/**: Single hook file only (`security_hook.extend.php`)
+- **plugin/gnukeeper/**: All business logic and classes
+- **adm/**: Admin interface files (unchanged location)
+
+### File Structure
+```
+plugin/gnukeeper/
+├── bootstrap.php          # Plugin initialization
+├── config.php            # Path constants and table names
+├── core/                 # Core classes
+│   ├── GK_Common.php        # Common utilities
+│   ├── GK_BlockManager.php  # IP blocking logic
+│   └── GK_SpamDetector.php  # Spam detection engine
+├── filters/              # Filter modules
+│   ├── RegexFilter.php      # Regex spam filter
+│   ├── UserAgentFilter.php  # User-Agent filter
+│   ├── BehaviorFilter.php   # Behavior pattern detection
+│   └── MultiUserFilter.php  # Multi-account detection
+├── sql/                  # SQL scripts
+│   └── install.sql          # Unified installation script
+└── data/                 # Data files
+    └── korea_ip_list.txt    # Korean IP ranges
+```
+
+## Key Features (Simplified Design)
+
+### 1. IP Blocking
+- **Simple Rule**: Block = Complete access denial (no level variations)
 - Manual IP/CIDR block management
 - Exception IP (whitelist) management
-- Bulk foreign IP blocking
 - Auto-block rules (login failures, spam, etc.)
-- Auto admin IP protection, CIDR notation support
+- Bulk foreign IP blocking
 
 ### 2. Spam Management
 - Login brute force blocking
-- Consecutive registration attempt limiting
-- Keyword filtering and regex pattern matching
-- Ghost mode (show spam posts only to author)
+- Regex pattern matching
+- User-Agent filtering
+- Multi-account detection
 - Defaults: 5 max attempts, 5-minute window, 10-minute block
 
-### 3. Access Control
-- Page-level access permission control (search, latest posts, member registration, etc.)
-- Admin page IP restrictions
-
-### 4. Permission Management
-- Enhanced board permission security
-- Bulk permission settings and template management
-
-## File Structure
-
-### Admin Interface (/adm/)
-- `admin.menu950.php`: Security settings menu definition
-- `security_home.php`: Security dashboard (950100)
-- `security_block/`: IP block management (950300) - modularized structure
-- `security_spam.php`: Spam management (950500)
-- `security_spam.sql`: Integrated SQL schema
-
-### Security Logic (/extend/)
-- `security_common.extend.php`: Common functions
-- `security_block_ip.extend.php`: IP block checking
-- `security_detect_spam.extend.php`: Spam detection and blocking
-- `security_block_ip_foreign.extend.php`: Foreign IP blocking
-
-### Menu Structure
+### 3. Admin Interface
 - 950100: Security dashboard
-- 950300: Block management (IP blocking system)
-- 950500: Spam management (auto-block settings)
+- 950300: Block management
+- 950500: Spam management
 
-## Gnuboard5 Architecture
-
-### lib/ vs extend/ Differences
-- lib/: Function libraries manually loaded when needed (`include_once()`)
-- extend/: Extension system auto-loaded by `common.php` (all pages)
-
-### Dependency Relationships
-```
-common.php (central)
-├── extend/*.extend.php auto-loaded
-├── lib/*.lib.php loaded when needed
-├── config.php included
-└── dbconfig.php included
-```
-
-### Bootstrap Process
-1. Execute common.php
-2. Load config.php (basic settings)
-3. Load dbconfig.php (DB connection)
-4. Auto-load all extend/*.extend.php
-5. Manually load lib/*.lib.php when needed
-6. Execute page-specific logic
-
-### Core Directories
-- `/adm/`: Admin interface
-- `/bbs/`: Board system (actively utilize hook system)
-- `/extend/`: Auto extension system (performance impact, independent)
-- `/lib/`: Function library (manual loading)
-- `/data/`: Configuration and cache files
-
-### extend/ File Writing Principles
-```php
-// extend/security_*.extend.php pattern
-if (!defined('_GNUBOARD_')) exit;
-
-// Static caching
-static $security_config = null;
-if ($security_config === null) {
-    $security_config = gk_get_config();
-}
-
-// Early return
-if (!$security_config['enable']) return;
-
-// Minimal security check
-gk_check_ip_block();
-```
-
-## Database Structure
-- `g5_security_config`: Plugin configuration storage
-- `g5_security_ip_block`: Blocked IP list
+## Database Structure (Simplified)
+- `g5_security_config`: Plugin configuration
+- `g5_security_ip_block`: Blocked IP list (no sb_block_level field)
 - `g5_security_ip_whitelist`: Exception IP list
 - `g5_security_login_fail`: Login failure log
-- `g5_security_spam_log`: Spam detection log
+- `g5_security_regex_spam`: Spam detection rules
 
-## Security Considerations
-- Validate and escape all input values
-- Check admin permissions (`$is_admin == 'super'`)
-- Use only trustworthy IP sources
-- Avoid heavy operations in extend files
-- Graceful degradation on DB connection failure
+## Development Workflow & Testing
 
-## Development Status
-Currently at Phase 2-3: IP blocking, spam prevention, and permission management systems are complete and refactored into a modularized structure. security_block has been improved to an include-based structure referencing the shop_admin pattern.
-
-## Commands and Scripts
-
-### Database Setup
-```bash
-# Initialize security tables
-mysql -u [user] -p [database] < security_spam.sql
-```
+### Critical Development Process
+1. **Code Development**: Implement features with proper error handling
+2. **Individual Testing**: Test each function with various inputs
+3. **Integration Testing**: Test plugin interaction with gnuboard5
+4. **Security Testing**: Test IP blocking, spam detection with real scenarios
+5. **Performance Testing**: Monitor extend file load impact
+6. **User Experience Testing**: Verify admin interface usability
 
 ### Testing Commands
 ```bash
-# Test IP blocking
-curl -H "X-Real-IP: 192.168.1.100" http://yoursite.com/
-# Test login failure detection
-# Attempt login with wrong credentials 5+ times
+# Test IP blocking (use 127.0.0.1 for IPv4 testing)
+curl -s http://127.0.0.1/ -w "Status: %{http_code}\n"
+
+# Test User-Agent filtering
+curl -H "User-Agent: curl/7.68.0" http://127.0.0.1/
+
+# Test login failure blocking
+for i in {1..6}; do curl -d "mb_id=test&mb_password=wrong" -X POST http://127.0.0.1/bbs/login_check.php; done
+
+# Database cleanup after tests
+mysql -u gnuuser -p'password' gnuboard -e "DELETE FROM g5_security_ip_block WHERE sb_ip = '127.0.0.1';"
 ```
 
-### File Permissions
-```bash
-# Set proper permissions for extend files
-chmod 644 extend/security_*.extend.php
-chmod 755 adm/security_*
-```
+### Testing Accounts
+- Admin: id=admin, pw=adminpassword
+- Test user: id=hacker, pw=hackerpassword
+- Use separate cookie files for different test scenarios
 
-## Workflow Guidelines
-- Always test extend files on development environment first
-- Use git branching for feature development
-- Run security tests before committing
-- Update CLAUDE.md when adding new commands or patterns
-- Check performance impact of extend modifications
+## Security Considerations
+- Validate and escape all input values
+- Check admin permissions (`$member['mb_level'] >= 10`)
+- Use only trustworthy IP sources
+- Graceful degradation on DB connection failure
+- Always test blocking functions before deployment
+
+## Performance Guidelines
+- extend files load on EVERY page - keep minimal
+- Use static caching for database queries
+- Single hook file pattern: `/extend/security_hook.extend.php` only
+- Business logic in plugin classes, not extend files
+- Test performance impact after any extend file changes
+
+## UI/UX Guidelines (Customer-Focused)
+- **Simplicity First**: General users should understand all options intuitively
+- **No Complex Configurations**: Avoid technical jargon and multiple sub-options
+- **Clear Feedback**: Show immediate results of actions
+- **AJAX-Only Interactions**: No page refreshes for user actions
 
 ## Important Notes
-- extend files are loaded on EVERY page request - keep them lightweight
+- **Testing is Critical**: Every feature must be tested with real scenarios before deployment
+- Function existence check prevents redeclaration errors
 - Never trust HTTP headers for IP detection in security contexts
-- Use gnuboard5's existing functions whenever possible for compatibility
-- Static caching is crucial for performance in frequently called functions
-- Always provide fallbacks for security functions to prevent site breakage
-
-## UI/UX Guidelines
-- **ABSOLUTELY NO PAGE REFRESHES**: All user interactions must be handled via AJAX
-- **Dynamic Content Updates**: Use JavaScript to update page elements without reloading
-- **AJAX-Only Policy**: Never use form submissions that cause page refreshes
-- **Real-time Updates**: Content should update immediately after AJAX operations
-- **User Feedback**: Provide instant visual feedback for all user actions
-- **Smooth Interactions**: All UI changes should be seamless and without interruption
+- Plugin structure optimizes performance while maintaining functionality
+- Simplified blocking logic (no levels) improves user experience

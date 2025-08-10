@@ -7,57 +7,60 @@ auth_check_menu($auth, $sub_menu, 'r');
 $g5['title'] = '보안설정 HOME';
 require_once './admin.head.php';
 
+// 공통 보안 CSS 포함
+echo '<link rel="stylesheet" href="'.G5_ADMIN_URL.'/css/security_common.css?ver='.G5_CSS_VER.'">';
+
 // 보안 통계 데이터 조회
 function get_security_stats() {
     global $g5;
-    
+
     $stats = array();
-    
+
     // 차단된 스팸 시도 (예: 차단된 회원 수)
     $sql = "SELECT COUNT(*) as cnt FROM {$g5['member_table']} WHERE mb_intercept_date != ''";
     $result = sql_fetch($sql);
     $stats['blocked_spam'] = $result['cnt'];
-    
+
     // 차단된 공격 시도 (예: 실패한 로그인 시도 - 가상 데이터)
     $stats['blocked_attacks'] = 47; // 실제 구현시 로그 테이블에서 조회
-    
+
     // 블랙리스트 IP (가상 데이터)
     $stats['blacklist_ips'] = 23; // 실제 구현시 IP 차단 테이블에서 조회
-    
+
     // 오늘 차단된 스팸
     $today = date('Y-m-d');
     $sql = "SELECT COUNT(*) as cnt FROM {$g5['member_table']} WHERE mb_intercept_date LIKE '{$today}%'";
     $result = sql_fetch($sql);
     $stats['today_blocked_spam'] = $result['cnt'];
-    
+
     // 오늘 차단된 공격시도 (가상 데이터)
     $stats['today_blocked_attacks'] = 12; // 실제 구현시 로그 테이블에서 조회
-    
+
     return $stats;
 }
 
 // 시스템 정보 조회
 function get_system_info() {
     global $g5;
-    
+
     $info = array();
     $info['plugin_status'] = '정상 작동중';
     $info['plugin_last_update'] = '2025년 08월 14일';
     $info['plugin_version'] = 'v1.0.0';
     $info['gnuboard_last_update'] = '2025년 06월 10일';
     $info['gnuboard_version'] = 'v15.2.0';
-    
+
     return $info;
 }
 
 // 종합 보안 점수 계산
 function calculate_security_score() {
     global $g5, $debug_info;
-    
+
     $score = 0;
     $max_score = 100;
     $score_details = array();
-    
+
     // 1. 데이터베이스 테이블 존재 (20점)
     if (isset($debug_info['database']['table_exists']) && $debug_info['database']['table_exists'] == 'YES') {
         $score += 20;
@@ -65,7 +68,7 @@ function calculate_security_score() {
     } else {
         $score_details['database'] = array('status' => 'bad', 'score' => 0, 'text' => '보안 테이블 없음');
     }
-    
+
     // 2. 필수 파일 존재 (20점)
     $missing_files = 0;
     if (isset($debug_info['files'])) {
@@ -82,7 +85,7 @@ function calculate_security_score() {
             $score_details['files'] = array('status' => 'warning', 'score' => $file_score, 'text' => $missing_files.'개 파일 누락');
         }
     }
-    
+
     // 3. 스팸 차단 효과 (15점)
     $security_stats = get_security_stats();
     if ($security_stats['blocked_spam'] > 10) {
@@ -94,7 +97,7 @@ function calculate_security_score() {
     } else {
         $score_details['spam_protection'] = array('status' => 'warning', 'score' => 0, 'text' => '스팸 차단 미흡');
     }
-    
+
     // 4. 공격 차단 효과 (15점)
     if ($security_stats['blocked_attacks'] > 20) {
         $score += 15;
@@ -105,7 +108,7 @@ function calculate_security_score() {
     } else {
         $score_details['attack_protection'] = array('status' => 'warning', 'score' => 0, 'text' => '공격 차단 미흡');
     }
-    
+
     // 5. IP 블랙리스트 관리 (10점)
     if ($security_stats['blacklist_ips'] > 10) {
         $score += 10;
@@ -116,8 +119,8 @@ function calculate_security_score() {
     } else {
         $score_details['blacklist'] = array('status' => 'bad', 'score' => 0, 'text' => 'IP 차단 없음');
     }
-    
-    // 6. PHP 버전 보안 (10점) - PHP 7.4 이상
+
+    // 6. PHP 버전 보안 (10점) - PHP 7.2 이상
     $php_version = phpversion();
     if (version_compare($php_version, '7.4.0', '>=')) {
         $score += 10;
@@ -128,7 +131,7 @@ function calculate_security_score() {
     } else {
         $score_details['php_version'] = array('status' => 'bad', 'score' => 0, 'text' => 'PHP 버전 위험');
     }
-    
+
     // 7. 최근 활동 상태 (10점)
     if ($security_stats['today_blocked_spam'] > 0 || $security_stats['today_blocked_attacks'] > 0) {
         $score += 10;
@@ -137,7 +140,7 @@ function calculate_security_score() {
         $score += 5;
         $score_details['recent_activity'] = array('status' => 'warning', 'score' => 5, 'text' => '보안 대기 상태');
     }
-    
+
     return array(
         'score' => $score,
         'max_score' => $max_score,
@@ -150,7 +153,7 @@ function calculate_security_score() {
 // 보안 등급 계산
 function get_security_grade($score, $max_score) {
     $percentage = ($score / $max_score) * 100;
-    
+
     if ($percentage >= 90) return array('grade' => 'A+', 'text' => '최우수', 'color' => '#28a745');
     if ($percentage >= 80) return array('grade' => 'A', 'text' => '우수', 'color' => '#20c997');
     if ($percentage >= 70) return array('grade' => 'B', 'text' => '양호', 'color' => '#ffc107');
@@ -193,7 +196,7 @@ function get_recent_logs() {
             'status' => '차단됨'
         )
     );
-    
+
     return $logs;
 }
 
@@ -238,7 +241,7 @@ foreach ($security_files as $name => $path) {
 try {
     $table_check = sql_fetch("SHOW TABLES LIKE 'g5_access_control'");
     $debug_info['database']['table_exists'] = $table_check ? 'YES' : 'NO';
-    
+
     if ($table_check) {
         $count_result = sql_fetch("SELECT COUNT(*) as cnt FROM g5_access_control");
         $debug_info['database']['table_rows'] = $count_result['cnt'];
@@ -252,84 +255,12 @@ $security_score = calculate_security_score();
 ?>
 
 <style>
-.security-dashboard {
-    margin: 20px 0;
-}
+/* security_home.php 전용 스타일 - 공통 스타일은 security_common.css에서 로드됨 */
+/* dashboard-section, stat-number는 security_common.css에서 로드됨 */
 
-.dashboard-section {
-    margin-bottom: 30px;
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    overflow: hidden;
-}
+/* system-info-grid, info-item, info-label, info-value는 security_common.css에서 로드됨 */
 
-.section-header {
-    background: #f8f9fa;
-    padding: 15px 20px;
-    border-bottom: 1px solid #ddd;
-    font-weight: bold;
-    font-size: 16px;
-    color: #333;
-}
-
-.section-content {
-    padding: 20px;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.stat-card {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 5px;
-    padding: 15px;
-    text-align: center;
-}
-
-.stat-number {
-    font-size: 24px;
-    font-weight: bold;
-    color: #dc3545;
-    margin-bottom: 5px;
-}
-
-.stat-label {
-    font-size: 14px;
-    color: #666;
-}
-
-.system-info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-}
-
-.info-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.info-label {
-    font-weight: bold;
-    color: #333;
-}
-
-.info-value {
-    color: #666;
-}
-
-.status-normal {
-    color: #28a745;
-    font-weight: bold;
-}
+/* status-normal, status-blocked는 security_common.css에서 로드됨 */
 
 .logs-table {
     width: 100%;
@@ -354,17 +285,7 @@ $security_score = calculate_security_score();
     background: #f8f9fa;
 }
 
-.status-blocked {
-    color: #dc3545;
-    font-weight: bold;
-}
-
-.dashboard-title {
-    color: #333;
-    margin-bottom: 20px;
-    font-size: 24px;
-    font-weight: bold;
-}
+/* dashboard-title는 security_common.css에서 로드됨 */
 
 /* 보안 점수 관련 스타일 */
 .security-score-section {
@@ -520,20 +441,20 @@ $security_score = calculate_security_score();
 
 <div class="security-dashboard">
     <h1 class="dashboard-title">보안설정 대시보드</h1>
-    
+
     <!-- 종합 보안 점수 -->
     <div class="security-score-section">
         <div class="score-header">
             <h2 class="score-title">🛡️ 종합 보안 점수</h2>
             <div class="score-updated">최종 업데이트: <?php echo date('Y.m.d H:i'); ?></div>
         </div>
-        
+
         <div class="score-main">
             <div class="score-display">
                 <div class="score-number"><?php echo $security_score['score']; ?></div>
                 <div class="score-max">/ <?php echo $security_score['max_score']; ?></div>
             </div>
-            
+
             <div class="score-grade">
                 <div class="grade-badge" style="background-color: <?php echo $security_score['grade']['color']; ?>">
                     <?php echo $security_score['grade']['grade']; ?>
@@ -541,26 +462,26 @@ $security_score = calculate_security_score();
                 <div class="grade-text"><?php echo $security_score['grade']['text']; ?></div>
             </div>
         </div>
-        
+
         <div class="progress-bar">
             <div class="progress-fill" style="width: <?php echo $security_score['percentage']; ?>%"></div>
         </div>
-        
+
         <div class="score-details">
             <?php foreach ($security_score['details'] as $key => $detail): ?>
             <div class="score-item">
                 <div class="score-item-header">
                     <span class="score-item-name">
                         <span class="status-icon">
-                            <?php 
-                            echo $detail['status'] == 'good' ? '✅' : 
-                                ($detail['status'] == 'warning' ? '⚠️' : '❌'); 
+                            <?php
+                            echo $detail['status'] == 'good' ? '✅' :
+                                ($detail['status'] == 'warning' ? '⚠️' : '❌');
                             ?>
                         </span>
-                        <?php 
+                        <?php
                         $item_names = array(
                             'database' => '데이터베이스',
-                            'files' => '파일 무결성', 
+                            'files' => '파일 무결성',
                             'spam_protection' => '스팸 차단',
                             'attack_protection' => '공격 차단',
                             'blacklist' => 'IP 블랙리스트',
@@ -577,7 +498,7 @@ $security_score = calculate_security_score();
             <?php endforeach; ?>
         </div>
     </div>
-    
+
     <!-- 1. 현황판 -->
     <div class="dashboard-section">
         <div class="section-header">
@@ -685,17 +606,17 @@ function logSecurityDebugInfo() {
     const systemInfo = <?php echo json_encode($system_info, JSON_PRETTY_PRINT); ?>;
     const securityStats = <?php echo json_encode($security_stats, JSON_PRETTY_PRINT); ?>;
     const securityScore = <?php echo json_encode($security_score, JSON_PRETTY_PRINT); ?>;
-    
+
     console.group('🛡️ 보안 플러그인 시스템 진단');
     console.log('⏰ 진단 시간:', debugInfo.timestamp);
-    
+
     // 보안 점수 정보 추가
     console.group('🏆 종합 보안 점수');
-    console.log(`%c${securityScore.score}/${securityScore.max_score}점 (${securityScore.percentage}%)`, 
+    console.log(`%c${securityScore.score}/${securityScore.max_score}점 (${securityScore.percentage}%)`,
                 'font-size: 18px; font-weight: bold; color: ' + securityScore.grade.color);
-    console.log(`등급: %c${securityScore.grade.grade} (${securityScore.grade.text})`, 
+    console.log(`등급: %c${securityScore.grade.grade} (${securityScore.grade.text})`,
                 'font-weight: bold; color: ' + securityScore.grade.color);
-    
+
     console.group('📋 점수 세부 항목');
     Object.entries(securityScore.details).forEach(([key, detail]) => {
         const emoji = detail.status === 'good' ? '✅' : (detail.status === 'warning' ? '⚠️' : '❌');
@@ -704,7 +625,7 @@ function logSecurityDebugInfo() {
     });
     console.groupEnd();
     console.groupEnd();
-    
+
     console.group('📊 보안 통계');
     console.log('차단된 스팸:', securityStats.blocked_spam + '건');
     console.log('차단된 공격:', securityStats.blocked_attacks + '건');
@@ -712,7 +633,7 @@ function logSecurityDebugInfo() {
     console.log('오늘 차단된 스팸:', securityStats.today_blocked_spam + '건');
     console.log('오늘 차단된 공격:', securityStats.today_blocked_attacks + '건');
     console.groupEnd();
-    
+
     console.group('💻 시스템 정보');
     console.log('PHP 버전:', debugInfo.php_version);
     console.log('MySQL 버전:', debugInfo.mysql_version);
@@ -720,7 +641,7 @@ function logSecurityDebugInfo() {
     console.log('플러그인 버전:', systemInfo.plugin_version);
     console.log('플러그인 상태:', systemInfo.plugin_status);
     console.groupEnd();
-    
+
     console.group('📁 플러그인 파일 무결성');
     Object.entries(debugInfo.files).forEach(([file, status]) => {
         const emoji = status === 'EXISTS' ? '✅' : '❌';
@@ -728,7 +649,7 @@ function logSecurityDebugInfo() {
         console.log(`%c${emoji} ${file}: ${status}`, color);
     });
     console.groupEnd();
-    
+
     console.group('🗄️ 데이터베이스 상태');
     console.log('테이블 존재:', debugInfo.database.table_exists);
     if (debugInfo.database.table_rows !== undefined) {
@@ -738,13 +659,13 @@ function logSecurityDebugInfo() {
         console.error('오류:', debugInfo.database.error);
     }
     console.groupEnd();
-    
+
     console.groupEnd();
-    
+
     // 상태 요약
     const missingFiles = Object.values(debugInfo.files).filter(status => status === 'MISSING').length;
     const tableExists = debugInfo.database.table_exists === 'YES';
-    
+
     if (missingFiles === 0 && tableExists) {
         console.log('%c✅ 시스템 상태: 정상', 'color: green; font-weight: bold; font-size: 14px');
     } else {
@@ -763,7 +684,7 @@ let consoleDebugEnabled = true;
 
 function toggleConsoleDebug() {
     consoleDebugEnabled = !consoleDebugEnabled;
-    
+
     if (consoleDebugEnabled) {
         console.log('%c🔍 콘솔 디버깅 활성화됨', 'color: green; font-weight: bold');
         logSecurityDebugInfo();
@@ -781,10 +702,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedDebugSetting === 'false') {
         consoleDebugEnabled = false;
     }
-    
+
     if (consoleDebugEnabled) {
         logSecurityDebugInfo();
-        
+
         // 추가 개발자 도구 표시
         console.log('%c보안 플러그인 개발자 모드', 'background: #007bff; color: white; padding: 5px 10px; border-radius: 3px');
         console.log('• logSecurityDebugInfo() - 시스템 상태 확인');

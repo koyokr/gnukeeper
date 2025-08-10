@@ -52,8 +52,8 @@ if (!sql_query("SELECT 1 FROM " . G5_TABLE_PREFIX . "security_config LIMIT 1", f
 // sb_block_level 컬럼 존재 여부 확인 및 추가
 $check_column = sql_query("SHOW COLUMNS FROM " . G5_TABLE_PREFIX . "security_ip_block LIKE 'sb_block_level'", false);
 if ($check_column && sql_num_rows($check_column) == 0) {
-    $alter_sql = "ALTER TABLE " . G5_TABLE_PREFIX . "security_ip_block 
-                  ADD COLUMN sb_block_level varchar(20) NOT NULL DEFAULT 'access' COMMENT '차단 수준' 
+    $alter_sql = "ALTER TABLE " . G5_TABLE_PREFIX . "security_ip_block
+                  ADD COLUMN sb_block_level varchar(20) NOT NULL DEFAULT 'access' COMMENT '차단 수준'
                   AFTER sb_block_type";
     sql_query($alter_sql, false);
 }
@@ -65,17 +65,17 @@ function gk_is_ip_blocked($ip) {
     }
 
     $ip_long = sprintf('%u', ip2long($ip));
-    
-    $sql = "SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_block 
-            WHERE sb_status = 'active' 
+
+    $sql = "SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_block
+            WHERE sb_status = 'active'
               AND (sb_duration = 'permanent' OR sb_end_datetime > NOW())
               AND {$ip_long} BETWEEN sb_start_ip AND sb_end_ip";
-              
+
     $result = sql_query($sql, false);
     if ($result && $row = sql_fetch_array($result)) {
         return $row['cnt'] > 0;
     }
-    
+
     return false;
 }
 
@@ -90,40 +90,40 @@ function gk_parse_cidr_for_block($cidr) {
         }
         return false;
     }
-    
+
     list($ip, $prefix) = explode('/', $cidr);
     $ip = trim($ip);
     $prefix = (int)trim($prefix);
-    
+
     if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || $prefix < 0 || $prefix > 32) {
         return false;
     }
-    
+
     $ip_long = sprintf('%u', ip2long($ip));
     $mask = 0xFFFFFFFF << (32 - $prefix);
     $mask = $mask & 0xFFFFFFFF;
-    
+
     $start_ip = $ip_long & $mask;
     $end_ip = $start_ip | (~$mask & 0xFFFFFFFF);
-    
+
     return array($start_ip, $end_ip);
 }
 
 // 설정값 가져오기 함수
 function gk_get_config($key, $default = '') {
     static $config_cache = array();
-    
+
     if (!isset($config_cache[$key])) {
         $sql = "SELECT sc_value FROM " . G5_TABLE_PREFIX . "security_config WHERE sc_key = '" . sql_escape_string($key) . "'";
         $result = sql_query($sql, false);
-        
+
         if ($result && $row = sql_fetch_array($result)) {
             $config_cache[$key] = $row['sc_value'];
         } else {
             $config_cache[$key] = $default;
         }
     }
-    
+
     return $config_cache[$key];
 }
 

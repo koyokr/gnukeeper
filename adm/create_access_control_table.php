@@ -55,13 +55,13 @@ $default_settings = array(
     array('bbs/content.php', '컨텐츠 보기', 1, '검색 & 컨텐츠', '정적 컨텐츠 페이지'),
     array('bbs/current_connect.php', '현재 접속자', 1, '검색 & 컨텐츠', '현재 접속 중인 사용자 목록'),
     array('bbs/group.php', '그룹', 1, '검색 & 컨텐츠', '게시판 그룹 페이지'),
-    
+
     // 회원 관련
     array('bbs/register.php', '회원가입', 1, '회원 관련', '신규 회원 가입'),
     array('bbs/password_lost.php', '비밀번호 찾기', 1, '회원 관련', '비밀번호 찾기/재설정'),
     array('bbs/memo.php', '쪽지', 2, '회원 관련', '회원간 쪽지 기능'),
     array('bbs/profile.php', '회원 프로필', 2, '회원 관련', '회원 프로필 보기'),
-    
+
     // 게시판/설문 관련
     array('bbs/board.php', '게시판', 1, '게시판/설문 관련', '게시판 목록 및 상세보기'),
     array('bbs/download.php', '파일 다운로드', 1, '게시판/설문 관련', '첨부파일 다운로드'),
@@ -80,9 +80,9 @@ foreach ($default_settings as $setting) {
         // 먼저 해당 페이지가 이미 있는지 확인
         $check_sql = "SELECT COUNT(*) as cnt FROM g5_access_control WHERE ac_page = '{$setting[0]}'";
         $check_result = sql_fetch($check_sql);
-        
+
         if ($check_result['cnt'] == 0) {
-            $sql = "INSERT INTO g5_access_control (ac_page, ac_name, ac_level, ac_category, ac_description) 
+            $sql = "INSERT INTO g5_access_control (ac_page, ac_name, ac_level, ac_category, ac_description)
                     VALUES ('{$setting[0]}', '{$setting[1]}', {$setting[2]}, '{$setting[3]}', '{$setting[4]}')";
             sql_query($sql);
             $inserted_count++;
