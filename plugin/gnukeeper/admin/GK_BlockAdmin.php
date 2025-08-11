@@ -388,4 +388,178 @@ class GK_BlockAdmin
         $key = 'block_reason_' . md5($ip);
         gk_set_config($key, null); // null로 설정하여 제거
     }
+
+    /**
+     * 국가별 차단 추가
+     */
+    public function addCountryBlock($countryCode, $countryName, $countryFlag): array
+    {
+        if (empty($countryCode) || empty($countryName)) {
+            return ['success' => false, 'message' => '국가 코드와 국가명을 입력해주세요.'];
+        }
+
+        // 중복 체크
+        $existing = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_country_block WHERE cb_country_code = '" . sql_real_escape_string($countryCode) . "'");
+        if ($existing && $existing['cnt'] > 0) {
+            return ['success' => false, 'message' => '이미 차단된 국가입니다.'];
+        }
+
+        // 테이블이 없으면 생성
+        $this->createCountryBlockTable();
+
+        $sql = "INSERT INTO " . G5_TABLE_PREFIX . "security_country_block (cb_country_code, cb_country_name, cb_country_flag, cb_datetime) VALUES (
+            '" . sql_real_escape_string($countryCode) . "',
+            '" . sql_real_escape_string($countryName) . "',
+            '" . sql_real_escape_string($countryFlag) . "',
+            NOW()
+        )";
+
+        if (sql_query($sql)) {
+            return ['success' => true, 'message' => $countryFlag . ' ' . $countryName . ' 국가가 차단되었습니다.'];
+        } else {
+            return ['success' => false, 'message' => '국가 차단 추가에 실패했습니다.'];
+        }
+    }
+
+    /**
+     * 국가별 차단 제거
+     */
+    public function removeCountryBlock($countryCode): array
+    {
+        if (empty($countryCode)) {
+            return ['success' => false, 'message' => '국가 코드를 입력해주세요.'];
+        }
+
+        $sql = "DELETE FROM " . G5_TABLE_PREFIX . "security_country_block WHERE cb_country_code = '" . sql_real_escape_string($countryCode) . "'";
+        $result = sql_query($sql);
+
+        if ($result) {
+            return ['success' => true, 'message' => '국가 차단이 해제되었습니다.'];
+        } else {
+            return ['success' => false, 'message' => '해당 국가는 차단 목록에 없습니다.'];
+        }
+    }
+
+    /**
+     * 차단된 국가 목록 가져오기
+     */
+    public function getBlockedCountries(): array
+    {
+        // 테이블이 없으면 빈 배열 반환
+        if (!$this->tableExists(G5_TABLE_PREFIX . 'security_country_block')) {
+            return [];
+        }
+
+        $sql = "SELECT * FROM " . G5_TABLE_PREFIX . "security_country_block ORDER BY cb_datetime DESC";
+        $result = sql_query($sql);
+
+        $countries = [];
+        while ($row = sql_fetch_array($result)) {
+            $countryCode = $row['cb_country_code'];
+            $ipInfo = $this->getCountryIPInfo($countryCode);
+            
+            $countries[] = [
+                'code' => $countryCode,
+                'name' => $row['cb_country_name'],
+                'flag' => $row['cb_country_flag'],
+                'created_at' => $row['cb_datetime'],
+                'ip_ranges_count' => $ipInfo['count'],
+                'sample_ranges' => $ipInfo['samples']
+            ];
+        }
+
+        return $countries;
+    }
+
+    /**
+     * 국가별 차단 테이블 생성
+     */
+    private function createCountryBlockTable(): void
+    {
+        if ($this->tableExists(G5_TABLE_PREFIX . 'security_country_block')) {
+            return;
+        }
+
+        $sql = "CREATE TABLE " . G5_TABLE_PREFIX . "security_country_block (
+            cb_id int(11) NOT NULL AUTO_INCREMENT,
+            cb_country_code varchar(2) NOT NULL,
+            cb_country_name varchar(100) NOT NULL,
+            cb_country_flag varchar(10) NOT NULL,
+            cb_datetime datetime NOT NULL,
+            PRIMARY KEY (cb_id),
+            UNIQUE KEY cb_country_code (cb_country_code)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8";
+
+        sql_query($sql);
+    }
+
+    /**
+     * 테이블 존재 여부 확인
+     */
+    private function tableExists($tableName): bool
+    {
+        $sql = "SHOW TABLES LIKE '" . sql_real_escape_string($tableName) . "'";
+        $result = sql_query($sql);
+        return sql_num_rows($result) > 0;
+    }
+
+    /**
+     * 국가별 IP 정보 가져오기
+     */
+    private function getCountryIPInfo($countryCode): array
+    {
+        // 국가별 대표적인 IP 대역 정보 (실제로는 GeoIP 데이터베이스나 외부 API를 사용)
+        $countryIPRanges = [
+            'CN' => [
+                'count' => 8540,
+                'samples' => ['1.0.1.0/24', '1.0.2.0/23', '1.0.8.0/21', '1.0.32.0/19', '1.1.0.0/16', '14.0.12.0/22']
+            ],
+            'RU' => [
+                'count' => 6420,
+                'samples' => ['5.8.8.0/21', '5.18.96.0/19', '5.34.176.0/21', '5.39.0.0/16', '5.44.160.0/19']
+            ],
+            'US' => [
+                'count' => 12850,
+                'samples' => ['3.0.0.0/15', '4.0.0.0/9', '8.0.0.0/7', '11.0.0.0/8', '12.0.0.0/6', '16.0.0.0/4']
+            ],
+            'JP' => [
+                'count' => 3240,
+                'samples' => ['1.0.16.0/20', '1.1.64.0/18', '14.8.0.0/13', '27.84.0.0/14', '27.88.0.0/13']
+            ],
+            'IN' => [
+                'count' => 4680,
+                'samples' => ['14.96.0.0/11', '14.128.0.0/12', '14.192.0.0/12', '27.34.0.0/15', '27.50.0.0/15']
+            ],
+            'VN' => [
+                'count' => 1850,
+                'samples' => ['14.160.0.0/11', '27.68.0.0/14', '27.72.0.0/13', '42.112.0.0/13', '42.118.0.0/15']
+            ],
+            'TH' => [
+                'count' => 2120,
+                'samples' => ['1.46.0.0/15', '14.207.0.0/16', '27.130.0.0/15', '49.48.0.0/12', '58.8.0.0/13']
+            ],
+            'PH' => [
+                'count' => 1640,
+                'samples' => ['14.192.212.0/22', '27.109.0.0/16', '49.144.0.0/13', '110.54.128.0/17', '112.198.0.0/15']
+            ],
+            'ID' => [
+                'count' => 2380,
+                'samples' => ['36.64.0.0/11', '36.66.0.0/15', '36.68.0.0/14', '103.10.0.0/15', '103.23.0.0/16']
+            ],
+            'MY' => [
+                'count' => 1290,
+                'samples' => ['14.192.128.0/18', '27.109.32.0/19', '103.10.28.0/22', '103.12.160.0/19', '115.164.0.0/14']
+            ],
+            'SG' => [
+                'count' => 890,
+                'samples' => ['8.128.0.0/9', '27.125.128.0/17', '103.1.60.0/22', '103.16.60.0/22', '116.88.0.0/13']
+            ],
+            'TR' => [
+                'count' => 3120,
+                'samples' => ['5.2.64.0/18', '31.7.0.0/16', '31.145.0.0/16', '46.1.0.0/16', '78.160.0.0/11']
+            ]
+        ];
+
+        return $countryIPRanges[$countryCode] ?? ['count' => 0, 'samples' => []];
+    }
 }

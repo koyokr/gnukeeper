@@ -298,6 +298,73 @@ require_once './admin.head.php';
 </div>
 
 <script>
+// 스크롤 위치 및 카드 상태 저장/복원
+const savePageState = () => {
+    // 스크롤 위치 저장
+    sessionStorage.setItem('security_policy_scroll', window.pageYOffset.toString());
+    
+    // 카드 펼침 상태 저장
+    const cardStates = {};
+    document.querySelectorAll('.card-content').forEach(content => {
+        const cardId = content.id;
+        cardStates[cardId] = content.classList.contains('show');
+    });
+    
+    sessionStorage.setItem('security_policy_cards', JSON.stringify(cardStates));
+};
+
+const restorePageState = () => {
+    // 스크롤 위치 복원 (지연 실행)
+    const savedPosition = sessionStorage.getItem('security_policy_scroll');
+    if (savedPosition) {
+        // DOM이 완전히 렌더링된 후 스크롤 위치 복원
+        setTimeout(() => {
+            window.scrollTo(0, parseInt(savedPosition));
+            sessionStorage.removeItem('security_policy_scroll');
+        }, 200);
+    }
+    
+    // 카드 상태 복원
+    const savedCards = sessionStorage.getItem('security_policy_cards');
+    if (savedCards) {
+        try {
+            const cardStates = JSON.parse(savedCards);
+            
+            Object.entries(cardStates).forEach(([cardId, isOpen]) => {
+                const content = document.getElementById(cardId);
+                
+                // 다양한 카드 ID 패턴 지원
+                let toggleId;
+                if (cardId.endsWith('-card')) {
+                    toggleId = cardId.replace('-card', '-toggle');
+                } else if (cardId.endsWith('-section')) {
+                    toggleId = cardId.replace('-section', '-toggle');
+                } else {
+                    toggleId = cardId + '-toggle';
+                }
+                
+                const toggle = document.getElementById(toggleId);
+                
+                if (content && toggle) {
+                    if (isOpen) {
+                        content.classList.add('show');
+                        toggle.textContent = '▼';
+                        toggle.style.transform = 'rotate(90deg)';
+                    } else {
+                        content.classList.remove('show');
+                        toggle.textContent = '▶';
+                        toggle.style.transform = 'rotate(0deg)';
+                    }
+                }
+            });
+            
+            sessionStorage.removeItem('security_policy_cards');
+        } catch (e) {
+            console.error('카드 상태 복원 중 오류:', e);
+        }
+    }
+};
+
 function toggleCard(cardId) {
     const content = document.getElementById(cardId);
     const toggle = document.getElementById(cardId.replace('-card', '-toggle'));
@@ -328,6 +395,7 @@ function updateBoardSecurity(action, boTable) {
     .then(data => {
         if (data.success) {
             alert(data.message);
+            savePageState();
             location.reload();
         } else {
             alert('오류가 발생했습니다: ' + data.message);
@@ -384,6 +452,7 @@ function updateBoardPermissions(boTable, action, level) {
         console.log('Response data:', data); // 디버깅용
         if (data.success) {
             alert(data.message);
+            savePageState();
             location.reload();
         } else {
             alert('오류가 발생했습니다: ' + data.message);
@@ -419,6 +488,7 @@ function toggleBoardException(boTable) {
         console.log('Response data:', data); // 디버깅용
         if (data.success) {
             alert(data.message);
+            savePageState();
             location.reload();
         } else {
             alert('오류가 발생했습니다: ' + data.message);
@@ -467,6 +537,7 @@ function resetSelectedUserPermissions() {
     .then(data => {
         if (data.success) {
             alert(data.message);
+            savePageState();
             location.reload();
         } else {
             alert('오류가 발생했습니다: ' + data.message);
@@ -499,28 +570,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 접근제어와 동일한 자동 카드 펼치기 기능
-    const cards = document.querySelectorAll('.card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
+    // 저장된 상태가 있는지 확인
+    const savedCards = sessionStorage.getItem('security_policy_cards');
+    
+    if (savedCards) {
+        // 저장된 상태가 있으면 카드 복원
         setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-
-            // 각 카드를 순차적으로 펼치기
+            restorePageState();
+            
+            // 카드 애니메이션 완료 후 스크롤 위치 재확인
             setTimeout(() => {
-                const cardContent = card.querySelector('.card-content');
-                const toggle = card.querySelector('[id$="-toggle"]');
-                if (cardContent && toggle) {
-                    cardContent.classList.add('show');
-                    toggle.textContent = '▼';
-                    toggle.style.transform = 'rotate(90deg)';
+                const savedPosition = sessionStorage.getItem('security_policy_scroll');
+                if (savedPosition) {
+                    window.scrollTo(0, parseInt(savedPosition));
+                    sessionStorage.removeItem('security_policy_scroll');
                 }
-            }, 500);
-        }, index * 100);
-    });
+            }, 600);
+        }, 100);
+    } else {
+        // 저장된 상태가 없으면 기본 자동 펼치기 실행
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+
+                // 각 카드를 순차적으로 펼치기
+                setTimeout(() => {
+                    const cardContent = card.querySelector('.card-content');
+                    const toggle = card.querySelector('[id$="-toggle"]');
+                    if (cardContent && toggle) {
+                        cardContent.classList.add('show');
+                        toggle.textContent = '▼';
+                        toggle.style.transform = 'rotate(90deg)';
+                    }
+                }, 500);
+            }, index * 100);
+        });
+    }
 });
 </script>
 

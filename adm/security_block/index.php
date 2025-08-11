@@ -57,18 +57,6 @@ $stats = $blockAdmin->getBlockStats();
                 수동으로 특정 IP나 IP 대역을 차단하여 사이트 접근을 제한할 수 있습니다.
             </div>
 
-            <div class="toggle-section">
-                <div class="toggle-info">
-                    <h3 class="toggle-title">고급 IP 차단 기능</h3>
-                    <p class="toggle-desc">수동 IP 차단 및 자동 차단 규칙을 활성화합니다.</p>
-                </div>
-                <input type="checkbox"
-                       id="gk-block-toggle"
-                       class="toggle-input"
-                       <?php echo $stats['gk_block_enabled'] == '1' ? 'checked' : ''; ?>
-                       onchange="toggleGKBlock(this)">
-                <label for="gk-block-toggle" class="toggle-switch"></label>
-            </div>
             <!-- IP 추가 폼 -->
             <div class="form-section">
                 <form id="addBlockForm">
@@ -117,45 +105,159 @@ $stats = $blockAdmin->getBlockStats();
                 <label for="foreign-block-toggle" class="toggle-switch"></label>
             </div>
 
-            <div class="expandable-section">
-                <button type="button" class="expand-btn" onclick="toggleServiceInfo(this)">
-                    <span>허용되는 해외 IP</span>
-                    <span class="expand-icon">▶</span>
-                </button>
+            <!-- 해외 IP 차단 상태 메시지 -->
+            <div id="foreign-block-status" class="status-message" style="display: none;">
+                <!-- 상태 메시지가 여기에 표시됩니다 -->
+            </div>
 
-                <div class="expand-content" id="foreign-services-details" style="display: none;">
-                    <div class="service-grid">
-                        <div class="service-category">
-                            <h4>🔍 검색엔진</h4>
-                            <div class="service-tags">
-                                <span>Google</span>
-                                <span>Bing</span>
-                                <span>DuckDuckGo</span>
-                                <span>Baidu</span>
+            <!-- 국가별 차단 설정과 허용되는 해외 IP -->
+            <div class="sub-card-group">
+                <!-- 국가별 차단 설정 -->
+                <div class="sub-card">
+                    <div class="sub-card-header" onclick="toggleSubCard('country-block-details', this)">
+                        국가별 차단 설정 <span class="sub-card-toggle">▶</span>
+                    </div>
+                    <div class="sub-card-content" id="country-block-details">
+                        <div class="info-highlight">
+                            특정 국가의 IP를 개별적으로 차단할 수 있습니다.
+                        </div>
+
+                        <!-- 국가 선택 -->
+                        <div class="country-selection">
+                            <h4>🌍 차단할 국가 선택</h4>
+                            <div class="country-grid">
+                                <button class="country-btn" onclick="addCountryBlock('CN', '🇨🇳', '중국')">🇨🇳 중국</button>
+                                <button class="country-btn" onclick="addCountryBlock('RU', '🇷🇺', '러시아')">🇷🇺 러시아</button>
+                                <button class="country-btn" onclick="addCountryBlock('US', '🇺🇸', '미국')">🇺🇸 미국</button>
+                                <button class="country-btn" onclick="addCountryBlock('JP', '🇯🇵', '일본')">🇯🇵 일본</button>
+                                <button class="country-btn" onclick="addCountryBlock('IN', '🇮🇳', '인도')">🇮🇳 인도</button>
+                                <button class="country-btn" onclick="addCountryBlock('VN', '🇻🇳', '베트남')">🇻🇳 베트남</button>
+                                <button class="country-btn" onclick="addCountryBlock('TH', '🇹🇭', '태국')">🇹🇭 태국</button>
+                                <button class="country-btn" onclick="addCountryBlock('PH', '🇵🇭', '필리핀')">🇵🇭 필리핀</button>
+                                <button class="country-btn" onclick="addCountryBlock('ID', '🇮🇩', '인도네시아')">🇮🇩 인도네시아</button>
+                                <button class="country-btn" onclick="addCountryBlock('MY', '🇲🇾', '말레이시아')">🇲🇾 말레이시아</button>
+                                <button class="country-btn" onclick="addCountryBlock('SG', '🇸🇬', '싱가포르')">🇸🇬 싱가포르</button>
+                                <button class="country-btn" onclick="addCountryBlock('TR', '🇹🇷', '터키')">🇹🇷 터키</button>
                             </div>
                         </div>
-                        <div class="service-category">
-                            <h4>☁️ CDN/클라우드</h4>
-                            <div class="service-tags">
-                                <span>Cloudflare</span>
-                                <span>AWS</span>
+
+                        <!-- 차단된 국가 목록 -->
+                        <div class="blocked-countries-section">
+                            <h4>🚫 차단된 국가 목록</h4>
+                            <div id="blockedCountriesList" class="ip-list">
+                                <!-- 동적으로 로드됨 -->
                             </div>
                         </div>
-                        <div class="service-category">
-                            <h4>📱 소셜미디어</h4>
-                            <div class="service-tags">
-                                <span>Facebook</span>
-                                <span>Twitter</span>
-                                <span>LinkedIn</span>
-                            </div>
+                    </div>
+                </div>
+
+                <!-- 허용되는 해외 IP -->
+                <div class="sub-card">
+                    <div class="sub-card-header" onclick="toggleSubCard('foreign-services-details', this)">
+                        허용되는 해외 IP <span class="sub-card-toggle">▶</span>
+                    </div>
+                    <div class="sub-card-content" id="foreign-services-details">
+                        <div class="info-highlight">
+                            해외 IP 차단이 활성화되어도 다음 서비스들은 자동으로 허용됩니다.
                         </div>
-                        <div class="service-category">
-                            <h4>📊 분석도구</h4>
-                            <div class="service-tags">
-                                <span>SEO 크롤러</span>
-                                <span>모니터링</span>
-                            </div>
-                        </div>
+
+                        <table class="ip-table">
+                            <thead>
+                                <tr>
+                                    <th>서비스 유형</th>
+                                    <th>허용되는 서비스</th>
+                                    <th>상태</th>
+                                    <th>설명</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <div class="ip-address">🔍 검색엔진</div>
+                                        <div class="ip-reason">SEO 및 색인화</div>
+                                    </td>
+                                    <td>
+                                        <div class="country-ip-info">
+                                            <div class="ip-sample">
+                                                <span class="ip-range-tag">Google</span>
+                                                <span class="ip-range-tag">Bing</span>
+                                                <span class="ip-range-tag">DuckDuckGo</span>
+                                                <span class="ip-range-tag">Baidu</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-badge-exception">차단 예외됨</span>
+                                    </td>
+                                    <td>
+                                        <div class="ip-date">사이트 검색 최적화</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="ip-address">☁️ CDN/클라우드</div>
+                                        <div class="ip-reason">콘텐츠 전송 네트워크</div>
+                                    </td>
+                                    <td>
+                                        <div class="country-ip-info">
+                                            <div class="ip-sample">
+                                                <span class="ip-range-tag">Cloudflare</span>
+                                                <span class="ip-range-tag">AWS</span>
+                                                <span class="ip-range-tag">Azure</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-badge-exception">차단 예외됨</span>
+                                    </td>
+                                    <td>
+                                        <div class="ip-date">성능 및 보안 향상</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="ip-address">📱 소셜미디어</div>
+                                        <div class="ip-reason">링크 미리보기</div>
+                                    </td>
+                                    <td>
+                                        <div class="country-ip-info">
+                                            <div class="ip-sample">
+                                                <span class="ip-range-tag">Facebook</span>
+                                                <span class="ip-range-tag">Twitter</span>
+                                                <span class="ip-range-tag">LinkedIn</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-badge-exception">차단 예외됨</span>
+                                    </td>
+                                    <td>
+                                        <div class="ip-date">소셜 공유 지원</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="ip-address">📊 분석도구</div>
+                                        <div class="ip-reason">사이트 모니터링</div>
+                                    </td>
+                                    <td>
+                                        <div class="country-ip-info">
+                                            <div class="ip-sample">
+                                                <span class="ip-range-tag">SEO 크롤러</span>
+                                                <span class="ip-range-tag">모니터링</span>
+                                                <span class="ip-range-tag">Analytics</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-badge-exception">차단 예외됨</span>
+                                    </td>
+                                    <td>
+                                        <div class="ip-date">사이트 분석 및 추적</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -275,9 +377,9 @@ const loadBlockedIPs = async () => {
                     <tr>
                         <th>IP 주소</th>
                         <th>차단 사유</th>
-                        <th>상태</th>
+                        <th>등록 방식</th>
                         <th>등록일</th>
-                        <th></th>
+                        <th>처리 기능</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -291,7 +393,7 @@ const loadBlockedIPs = async () => {
                                 <div class="ip-reason">${ip.reason || '사유 없음'}</div>
                             </td>
                             <td>
-                                <span class="status-badge ${ip.is_auto ? 'auto-blocked' : 'manual-blocked'}">
+                                <span class="status-badge status-badge-${ip.block_type.replace('auto_', '').replace('manual', 'manual')}">
                                     ${ip.block_type_display || '차단됨'}
                                 </span>
                             </td>
@@ -363,7 +465,7 @@ const loadWhitelistIPs = async () => {
                         <th>메모</th>
                         <th>상태</th>
                         <th>등록일</th>
-                        <th></th>
+                        <th>처리 기능</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -401,23 +503,6 @@ const loadWhitelistIPs = async () => {
     }
 };
 
-// 고급 IP 차단 관리 토글
-const toggleGKBlock = async (checkbox) => {
-    const enabled = checkbox.checked;
-
-    const result = await apiCall('toggle_gk_block', {
-        enabled: enabled ? '1' : '0'
-    });
-
-    showToast(result.message, result.success ? 'success' : 'error');
-
-    if (!result.success) {
-        // 실패 시 체크박스 상태 되돌리기
-        checkbox.checked = !enabled;
-    } else {
-        updateStats();
-    }
-};
 
 // 해외 IP 차단 토글 (Cloudflare 스타일)
 const toggleForeignBlock = async (checkbox) => {
@@ -434,6 +519,188 @@ const toggleForeignBlock = async (checkbox) => {
         checkbox.checked = !enabled;
     } else {
         updateStats();
+        updateForeignBlockStatus(enabled);
+        // 국가별 차단 목록 상태도 업데이트
+        loadBlockedCountries();
+    }
+};
+
+// 해외 IP 차단 상태 메시지 업데이트
+const updateForeignBlockStatus = (enabled) => {
+    const statusDiv = document.getElementById('foreign-block-status');
+    
+    if (enabled) {
+        statusDiv.innerHTML = `
+            <div class="alert-success-sm">
+                해외 IP 차단이 활성화되어 한국 외 IP의 접속이 안전하게 차단되고 있습니다.
+            </div>
+        `;
+        statusDiv.style.display = 'block';
+    } else {
+        statusDiv.innerHTML = `
+            <div class="alert-warning-sm">
+                해외 IP 차단이 비활성화되어 모든 해외 IP의 접속이 허용됩니다.
+            </div>
+        `;
+        statusDiv.style.display = 'block';
+    }
+};
+
+// Sub Card 토글 함수
+const toggleSubCard = (contentId, headerElement) => {
+    const content = document.getElementById(contentId);
+    const toggle = headerElement.querySelector('.sub-card-toggle');
+    
+    if (content.classList.contains('show')) {
+        content.classList.remove('show');
+        content.style.display = 'none';
+        content.style.visibility = 'hidden';
+        content.style.opacity = '0';
+        toggle.textContent = '▶';
+        toggle.style.transform = 'rotate(0deg)';
+    } else {
+        content.classList.add('show');
+        content.style.display = 'block';
+        content.style.visibility = 'visible';
+        content.style.opacity = '1';
+        toggle.textContent = '▼';
+        toggle.style.transform = 'rotate(90deg)';
+        
+        // 국가별 차단 설정이 열릴 때 데이터 로드
+        if (contentId === 'country-block-details') {
+            // DOM이 완전히 준비될 때까지 잠시 대기
+            setTimeout(() => loadBlockedCountries(), 50);
+        }
+    }
+};
+
+// 국가 차단 추가
+const addCountryBlock = async (countryCode, flag, countryName) => {
+    if (!confirm(`${flag} ${countryName}을(를) 차단 목록에 추가하시겠습니까?`)) return;
+    
+    const result = await apiCall('add_country_block', {
+        country_code: countryCode,
+        country_name: countryName,
+        country_flag: flag
+    });
+    
+    showToast(result.message, result.success ? 'success' : 'error');
+    
+    if (result.success) {
+        loadBlockedCountries();
+        updateCountryButtonStates();
+        updateStats();
+    }
+};
+
+// 국가 차단 제거
+const removeCountryBlock = async (countryCode, countryName) => {
+    if (!confirm(`${countryName} 차단을 해제하시겠습니까?`)) return;
+    
+    const result = await apiCall('remove_country_block', {
+        country_code: countryCode
+    });
+    
+    showToast(result.message, result.success ? 'success' : 'error');
+    
+    if (result.success) {
+        loadBlockedCountries();
+        updateCountryButtonStates();
+        updateStats();
+    }
+};
+
+// 차단된 국가 목록 로드
+const loadBlockedCountries = async () => {
+    const result = await apiCall('get_blocked_countries');
+    const container = document.getElementById('blockedCountriesList');
+    
+    // 컨테이너가 없으면 조용히 종료 (서브카드가 닫힌 상태)
+    if (!container) {
+        return;
+    }
+    
+    // 해외 IP 차단 토글 상태 확인
+    const foreignToggle = document.getElementById('foreign-block-toggle');
+    const isForeignBlockEnabled = foreignToggle ? foreignToggle.checked : false;
+    
+    if (result.success && result.data.length > 0) {
+        container.innerHTML = `
+            <table class="ip-table">
+                <thead>
+                    <tr>
+                        <th>국가</th>
+                        <th>IP 대역 정보</th>
+                        <th>차단 상태</th>
+                        <th>등록일</th>
+                        <th>처리 기능</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${result.data.map(country => `
+                        <tr>
+                            <td>
+                                <div class="ip-address">${country.flag} ${country.name}</div>
+                                <div class="ip-reason">국가 코드: ${country.code}</div>
+                            </td>
+                            <td>
+                                <div class="country-ip-info">
+                                    ${country.sample_ranges && country.sample_ranges.length > 0 ? 
+                                        `<div class="ip-sample">
+                                            ${country.sample_ranges.map(range => 
+                                                `<span class="ip-range-tag">${range}</span>`
+                                            ).join('')}
+                                        </div>`
+                                        : '<div class="ip-sample-empty">IP 정보 로딩중...</div>'
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <span class="country-status-badge ${isForeignBlockEnabled ? 'active' : 'standby'}">
+                                    ${isForeignBlockEnabled ? '차단됨' : '차단 준비중'}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="ip-date">${country.created_at || '-'}</div>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-sm btn-danger" onclick="removeCountryBlock('${country.code}', '${country.name}')">차단 해제</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🌍</div>
+                <p>차단된 국가가 없습니다</p>
+            </div>
+        `;
+    }
+};
+
+// 국가 버튼 상태 업데이트
+const updateCountryButtonStates = async () => {
+    const result = await apiCall('get_blocked_countries');
+    if (result.success) {
+        const blockedCountries = result.data.map(country => country.code);
+        
+        document.querySelectorAll('.country-btn').forEach(btn => {
+            const countryCode = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+            if (blockedCountries.includes(countryCode)) {
+                btn.classList.add('blocked');
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+            } else {
+                btn.classList.remove('blocked');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        });
     }
 };
 
@@ -451,10 +718,117 @@ const toggleServiceInfo = (button) => {
     }
 };
 
+
+// 스크롤 위치 및 카드 상태 저장/복원
+const savePageState = () => {
+    // 스크롤 위치 저장
+    sessionStorage.setItem('security_block_scroll', window.pageYOffset.toString());
+    
+    // 카드 펼침 상태 저장
+    const cardStates = {};
+    document.querySelectorAll('.card-content').forEach(content => {
+        const cardId = content.id;
+        cardStates[cardId] = content.classList.contains('show');
+    });
+    
+    // 서브카드 펼침 상태 저장
+    document.querySelectorAll('.sub-card-content').forEach(content => {
+        const cardId = content.id;
+        cardStates[cardId] = content.classList.contains('show');
+    });
+    
+    sessionStorage.setItem('security_block_cards', JSON.stringify(cardStates));
+};
+
+const restorePageState = () => {
+    // 스크롤 위치 복원 (지연 실행)
+    const savedPosition = sessionStorage.getItem('security_block_scroll');
+    if (savedPosition) {
+        // DOM이 완전히 렌더링된 후 스크롤 위치 복원
+        setTimeout(() => {
+            window.scrollTo(0, parseInt(savedPosition));
+            sessionStorage.removeItem('security_block_scroll');
+        }, 200);
+    }
+    
+    // 카드 상태 복원
+    const savedCards = sessionStorage.getItem('security_block_cards');
+    if (savedCards) {
+        try {
+            const cardStates = JSON.parse(savedCards);
+            
+            // 메인 카드와 서브카드를 분리해서 처리
+            Object.entries(cardStates).forEach(([cardId, isOpen]) => {
+                const content = document.getElementById(cardId);
+                
+                if (!content) return;
+                
+                // 메인 카드 처리
+                if (cardId.endsWith('-card')) {
+                    const toggleId = cardId.replace('-card', '-toggle');
+                    const toggle = document.getElementById(toggleId);
+                    
+                    if (toggle) {
+                        if (isOpen) {
+                            content.classList.add('show');
+                            toggle.textContent = '▼';
+                            toggle.style.transform = 'rotate(90deg)';
+                        } else {
+                            content.classList.remove('show');
+                            toggle.textContent = '▶';
+                            toggle.style.transform = 'rotate(0deg)';
+                        }
+                    }
+                }
+                
+                // 서브카드 처리
+                else if (cardId.endsWith('-details')) {
+                    const subCardHeader = document.querySelector(`[onclick*="${cardId}"]`);
+                    
+                    if (subCardHeader && isOpen) {
+                        // toggleSubCard와 동일한 로직 사용
+                        content.classList.add('show');
+                        content.style.display = 'block';
+                        content.style.visibility = 'visible';
+                        content.style.opacity = '1';
+                        
+                        const subToggle = subCardHeader.querySelector('.sub-card-toggle');
+                        if (subToggle) {
+                            subToggle.textContent = '▼';
+                            subToggle.style.transform = 'rotate(90deg)';
+                        }
+                        
+                        // 서브카드별 데이터 로딩
+                        if (cardId === 'country-block-details') {
+                            setTimeout(() => loadBlockedCountries(), 50);
+                        }
+                    } else if (subCardHeader && !isOpen) {
+                        content.classList.remove('show');
+                        content.style.display = 'none';
+                        content.style.visibility = 'hidden';
+                        content.style.opacity = '0';
+                        
+                        const subToggle = subCardHeader.querySelector('.sub-card-toggle');
+                        if (subToggle) {
+                            subToggle.textContent = '▶';
+                            subToggle.style.transform = 'rotate(0deg)';
+                        }
+                    }
+                }
+            });
+            
+            sessionStorage.removeItem('security_block_cards');
+        } catch (e) {
+            console.error('카드 상태 복원 중 오류:', e);
+        }
+    }
+};
+
 // 통계 업데이트
 const updateStats = () => {
     // 통계는 페이지 새로고침 없이 업데이트하려면 별도 API가 필요
     // 현재는 간단히 페이지 새로고침
+    savePageState();
     setTimeout(() => location.reload(), 1000);
 };
 
@@ -476,33 +850,63 @@ function toggleCard(cardId) {
 document.addEventListener('DOMContentLoaded', () => {
     loadBlockedIPs();
     loadWhitelistIPs();
+    
+    // 해외 IP 차단 초기 상태 표시
+    const foreignToggle = document.getElementById('foreign-block-toggle');
+    if (foreignToggle) {
+        updateForeignBlockStatus(foreignToggle.checked);
+    }
+    
+    // 국가 버튼 상태 초기화
+    updateCountryButtonStates();
 
     // 폼 이벤트 리스너 추가
     document.getElementById('addBlockForm').addEventListener('submit', addIPBlock);
     document.getElementById('addWhitelistForm').addEventListener('submit', addWhitelistIP);
 
-    // security_extension과 동일한 자동 카드 펼치기 기능
-    const cards = document.querySelectorAll('.card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
+    // 저장된 상태가 있는지 확인
+    const savedCards = sessionStorage.getItem('security_block_cards');
+    
+    if (savedCards) {
+        // 저장된 상태가 있으면 카드 복원 후 필요한 데이터 로드
         setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-
-            // 각 카드를 순차적으로 펼치기
+            restorePageState();
+            
+            // 데이터 로드는 서브카드 복원 로직에서 처리됨
+            
+            // 카드 애니메이션 완료 후 스크롤 위치 재확인
             setTimeout(() => {
-                const cardContent = card.querySelector('.card-content');
-                const toggle = card.querySelector('[id$="-toggle"]');
-                if (cardContent && toggle) {
-                    cardContent.classList.add('show');
-                    toggle.textContent = '▼';
-                    toggle.style.transform = 'rotate(90deg)';
+                const savedPosition = sessionStorage.getItem('security_block_scroll');
+                if (savedPosition) {
+                    window.scrollTo(0, parseInt(savedPosition));
+                    sessionStorage.removeItem('security_block_scroll');
                 }
-            }, 500);
-        }, index * 100);
-    });
+            }, 600);
+        }, 100);
+    } else {
+        // 저장된 상태가 없으면 기본 자동 펼치기 실행
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+
+                // 각 카드를 순차적으로 펼치기
+                setTimeout(() => {
+                    const cardContent = card.querySelector('.card-content');
+                    const toggle = card.querySelector('[id$="-toggle"]');
+                    if (cardContent && toggle) {
+                        cardContent.classList.add('show');
+                        toggle.textContent = '▼';
+                        toggle.style.transform = 'rotate(90deg)';
+                    }
+                }, 500);
+            }, index * 100);
+        });
+    }
 });
 </script>
 

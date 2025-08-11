@@ -81,6 +81,24 @@ try {
             $result = $blockAdmin->toggleGKBlock($enabled);
             break;
 
+        // 국가별 차단 관련
+        case 'add_country_block':
+            $countryCode = trim((string)($_POST['country_code'] ?? ''));
+            $countryName = trim((string)($_POST['country_name'] ?? ''));
+            $countryFlag = trim((string)($_POST['country_flag'] ?? ''));
+            $result = $blockAdmin->addCountryBlock($countryCode, $countryName, $countryFlag);
+            break;
+
+        case 'remove_country_block':
+            $countryCode = trim((string)($_POST['country_code'] ?? ''));
+            $result = $blockAdmin->removeCountryBlock($countryCode);
+            break;
+
+        case 'get_blocked_countries':
+            $countries = $blockAdmin->getBlockedCountries();
+            $result = ['success' => true, 'data' => $countries];
+            break;
+
         default:
             $result = ['success' => false, 'message' => '알 수 없는 action입니다: ' . $action];
             break;
