@@ -141,3 +141,24 @@ if (!function_exists('gk_log')) {
         error_log($log_entry, 3, $log_file);
     }
 }
+
+/**
+ * 플러그인 초기화 완료 후 그누보드 설정 동기화
+ * 최초 한 번만 실행되도록 플래그로 제어
+ */
+if (gk_is_initialized()) {
+    $sync_completed = gk_get_config('initial_sync_completed');
+    if (!$sync_completed && class_exists('GK_BlockManager')) {
+        try {
+            // 그누보드 설정을 GnuKeeper로 동기화
+            GK_BlockManager::syncFromGnuboard();
+            
+            // 동기화 완료 플래그 설정
+            gk_set_config('initial_sync_completed', '1');
+            
+            gk_log('Initial sync from Gnuboard completed successfully');
+        } catch (Exception $e) {
+            gk_log('Initial sync failed: ' . $e->getMessage(), 'error');
+        }
+    }
+}

@@ -180,6 +180,11 @@ class GK_BlockAdmin
             ];
             $type_name = $block_type_names[$block_type] ?? '수동';
 
+            // 수동 차단인 경우 그누보드 설정도 동기화
+            if ($block_type === 'manual') {
+                GK_BlockManager::syncToGnuboard();
+            }
+
             return ['success' => true, 'message' => "IP 차단이 추가되었습니다. ({$type_name})"];
         } else {
             return ['success' => false, 'message' => 'IP 차단 추가에 실패했습니다.'];
@@ -207,6 +212,9 @@ class GK_BlockAdmin
         $result = GK_BlockManager::remove_block($ip);
 
         if ($result) {
+            // 그누보드 설정도 동기화
+            GK_BlockManager::syncToGnuboard();
+            
             return ['success' => true, 'message' => 'IP 차단이 제거되었습니다.'];
         } else {
             return ['success' => false, 'message' => '해당 IP는 차단 목록에 없습니다.'];
@@ -251,7 +259,8 @@ class GK_BlockAdmin
                     'block_type_display' => $block_type_display,
                     'is_auto' => $is_auto,
                     'hit_count' => (int)$row['sb_hit_count'],
-                    'created_at' => $row['sb_datetime']
+                    'created_at' => $row['sb_datetime'],
+                    'is_localhost' => GK_BlockManager::is_localhost_ip($row['sb_ip'])
                 ];
             }
         }
@@ -283,6 +292,9 @@ class GK_BlockAdmin
         $result = sql_query($sql);
 
         if ($result) {
+            // 그누보드 설정도 동기화
+            GK_BlockManager::syncToGnuboard();
+            
             return ['success' => true, 'message' => '예외 IP가 추가되었습니다.'];
         } else {
             return ['success' => false, 'message' => '예외 IP 추가에 실패했습니다.'];
@@ -302,6 +314,9 @@ class GK_BlockAdmin
         $result = sql_query($sql);
 
         if ($result) {
+            // 그누보드 설정도 동기화
+            GK_BlockManager::syncToGnuboard();
+            
             return ['success' => true, 'message' => '예외 IP가 제거되었습니다.'];
         } else {
             return ['success' => false, 'message' => '예외 IP 제거에 실패했습니다.'];

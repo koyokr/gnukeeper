@@ -8,6 +8,12 @@
 
 if (!defined('_GNUBOARD_')) exit;
 
+// 차단 문제 해결 완료 - GnuKeeper 정상 동작
+// return;
+
+// 강제로 테스트 로그 작성 (파일 시스템에)
+file_put_contents('/tmp/gnukeeper_extend_test.log', date('Y-m-d H:i:s') . " - extend file loaded\n", FILE_APPEND);
+
 // 플러그인 경로 정의
 if (!defined('GK_PLUGIN_PATH')) {
     define('GK_PLUGIN_PATH', G5_PATH . '/plugin/gnukeeper');
@@ -21,15 +27,29 @@ if (!file_exists(GK_PLUGIN_PATH . '/bootstrap.php')) {
 // 플러그인 부트스트랩 로드
 require_once GK_PLUGIN_PATH . '/bootstrap.php';
 
+// 간단한 테스트 로그
+error_log("GnuKeeper security_hook.extend.php loaded at " . date('Y-m-d H:i:s'), 3, '/tmp/gk_test.log');
+
 // 플러그인이 초기화되었는지 확인
 if (!gk_is_initialized()) {
     return;
 }
 
 // ========================================
-// 1. 그누보드 기본 IP 차단 기능 비활성화 (임시 주석 처리)
+// 1. 그누보드 기본 IP 차단에서 localhost 예외 처리
 // ========================================
-// 함수 정의 후에 실행되도록 하단으로 이동
+add_event('common_start', 'gk_override_gnuboard_ip_block', 1);
+function gk_override_gnuboard_ip_block() {
+    global $config;
+    
+    $current_ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    
+    // localhost IP인 경우 그누보드 차단 설정 임시 무력화
+    if (GK_BlockManager::is_localhost_ip($current_ip)) {
+        $config['cf_intercept_ip'] = '';
+        $config['cf_possible_ip'] = '';
+    }
+}
 
 // ========================================
 // 2. IP 차단 체크 (최우선 실행)
@@ -45,7 +65,9 @@ GK_BlockManager::checkForeignIP();
 // 4. User-Agent 필터
 // ========================================
 require_once GK_FILTERS_PATH . '/UserAgentFilter.php';
+gk_log("About to call UserAgentFilter::check()");
 GK_UserAgentFilter::check();
+gk_log("UserAgentFilter::check() completed");
 
 // ========================================
 // 5. 스팸 필터 등록

@@ -39,6 +39,11 @@ class GK_BlockManager {
             return;
         }
 
+        // localhost IP는 절대 차단하지 않음 (안전 장치)
+        if (self::is_localhost_ip($current_ip)) {
+            return;
+        }
+
         // 테이블 존재 여부 및 기능 활성화 확인
         if (!GK_Common::check_tables_exist() || !self::is_enabled()) {
             return;
@@ -395,6 +400,11 @@ class GK_BlockManager {
             return;
         }
 
+        // localhost IP는 절대 차단하지 않음 (안전 장치)
+        if (self::is_localhost_ip($current_ip)) {
+            return;
+        }
+
         // 예외 IP(화이트리스트) 확인 (우선 처리)
         if (self::is_whitelisted($current_ip)) {
             return;
@@ -433,9 +443,61 @@ class GK_BlockManager {
     }
 
     /**
+     * localhost 관련 IP인지 확인 (IPv4, IPv6 모두 포함)
+     */
+    public static function is_localhost_ip($ip) {
+        if (empty($ip)) {
+            return false;
+        }
+
+        // IPv4 localhost 패턴
+        $ipv4_localhost_patterns = [
+            '127.0.0.1',        // 정확한 localhost
+            '0.0.0.0',          // 모든 인터페이스
+            '::1',              // IPv6 localhost
+            'localhost',        // 호스트명
+        ];
+
+        // 정확한 매치 확인
+        if (in_array($ip, $ipv4_localhost_patterns)) {
+            return true;
+        }
+
+        // IPv4 127.x.x.x 범위 확인
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $ip_long = ip2long($ip);
+            $localhost_start = ip2long('127.0.0.0');
+            $localhost_end = ip2long('127.255.255.255');
+            
+            if ($ip_long >= $localhost_start && $ip_long <= $localhost_end) {
+                return true;
+            }
+        }
+
+        // IPv6 localhost 패턴 확인
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            // ::1 (IPv6 localhost)
+            if ($ip === '::1' || $ip === '0:0:0:0:0:0:0:1') {
+                return true;
+            }
+            // IPv6 loopback 범위
+            if (strpos($ip, '::1') !== false || strpos($ip, '0:0:0:0:0:0:0:1') !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 사설 IP, 예약 IP, 로컬 IP인지 확인
      */
     private static function is_private_or_reserved_ip($ip) {
+        // localhost IP는 항상 예외 처리
+        if (self::is_localhost_ip($ip)) {
+            return true;
+        }
+
         // IP 유효성 검사
         if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
             return true; // 유효하지 않은 IP
@@ -622,5 +684,192 @@ class GK_BlockManager {
         }
 
         return false;
+    }
+
+    /**
+     * 그누보드 기본 IP 설정을 GnuKeeper로 동기화
+     */
+    public static function syncFromGnuboard() {
+        global $config;
+        
+        if (!isset($config)) {
+            return;
+        }
+        
+        // 접근차단 IP 동기화
+        if (!empty($config['cf_intercept_ip'])) {
+            $intercept_ips = explode("\n", trim($config['cf_intercept_ip']));
+            foreach ($intercept_ips as $ip) {
+                $ip = trim($ip);
+                if (empty($ip)) continue;
+                
+                // + 패턴을 CIDR로 변환
+                $normalized_ip = self::convert_gnuboard_pattern_to_cidr($ip);
+                if ($normalized_ip) {
+                    self::add_block($normalized_ip, '그누보드 기본 차단 설정에서 동기화', 'manual');
+                }
+            }
+        }
+        
+        // 접근가능 IP 동기화 (예외 IP로 추가)
+        if (!empty($config['cf_possible_ip'])) {
+            $possible_ips = explode("\n", trim($config['cf_possible_ip']));
+            foreach ($possible_ips as $ip) {
+                $ip = trim($ip);
+                if (empty($ip)) continue;
+                
+                // + 패턴을 실제 IP로 변환해서 예외 IP에 추가
+                $normalized_ip = self::convert_gnuboard_pattern_to_ip($ip);
+                if ($normalized_ip) {
+                    self::add_whitelist($normalized_ip, '그누보드 접근가능 IP에서 동기화');
+                }
+            }
+        }
+    }
+    
+    /**
+     * GnuKeeper 설정을 그누보드 기본 설정에 동기화
+     */
+    public static function syncToGnuboard() {
+        // 수동으로 추가된 차단 IP만 그누보드에 동기화 (자동 차단은 제외)
+        $manual_blocks = self::getManualBlocks();
+        $intercept_ips = [];
+        
+        foreach ($manual_blocks as $block) {
+            $intercept_ips[] = $block['sb_ip'];
+        }
+        
+        // 예외 IP를 접근가능 IP로 동기화
+        $whitelist_ips = self::getWhitelistIPs();
+        $possible_ips = [];
+        
+        foreach ($whitelist_ips as $whitelist) {
+            $possible_ips[] = $whitelist['sw_ip'];
+        }
+        
+        // 그누보드 설정 업데이트
+        $intercept_ip_str = implode("\n", $intercept_ips);
+        $possible_ip_str = implode("\n", $possible_ips);
+        
+        $sql = "UPDATE " . G5_TABLE_PREFIX . "config SET 
+                cf_intercept_ip = '" . sql_escape_string($intercept_ip_str) . "',
+                cf_possible_ip = '" . sql_escape_string($possible_ip_str) . "'";
+        sql_query($sql);
+    }
+    
+    /**
+     * 수동 차단 IP 목록 조회
+     */
+    private static function getManualBlocks() {
+        $sql = "SELECT sb_ip FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                WHERE sb_status = 'active' AND sb_block_type = 'manual'";
+        $result = sql_query($sql);
+        
+        $blocks = [];
+        while ($row = sql_fetch_array($result)) {
+            $blocks[] = $row;
+        }
+        
+        return $blocks;
+    }
+    
+    /**
+     * 예외 IP 목록 조회
+     */
+    private static function getWhitelistIPs() {
+        $sql = "SELECT sw_ip FROM " . G5_TABLE_PREFIX . "security_ip_whitelist";
+        $result = sql_query($sql);
+        
+        $whitelist = [];
+        while ($row = sql_fetch_array($result)) {
+            $whitelist[] = $row;
+        }
+        
+        return $whitelist;
+    }
+    
+    /**
+     * 예외 IP 추가
+     */
+    private static function add_whitelist($ip, $memo = '') {
+        // 중복 체크
+        $existing = sql_fetch("SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist WHERE sw_ip = '" . sql_escape_string($ip) . "'");
+        if ($existing && $existing['cnt'] > 0) {
+            return false;
+        }
+        
+        $sql = "INSERT INTO " . G5_TABLE_PREFIX . "security_ip_whitelist (sw_ip, sw_memo, sw_datetime) VALUES (
+            '" . sql_escape_string($ip) . "',
+            '" . sql_escape_string($memo) . "',
+            NOW()
+        )";
+        
+        return sql_query($sql);
+    }
+    
+    /**
+     * 그누보드 패턴(+)을 CIDR로 변환
+     */
+    private static function convert_gnuboard_pattern_to_cidr($pattern) {
+        // 123.123.+ -> 123.123.0.0/16
+        // 123.123.123.+ -> 123.123.123.0/24
+        
+        if (strpos($pattern, '+') !== false) {
+            $parts = explode('.', $pattern);
+            $cidr_prefix = 0;
+            $ip_parts = [];
+            
+            for ($i = 0; $i < 4; $i++) {
+                if (isset($parts[$i]) && $parts[$i] !== '+') {
+                    $ip_parts[] = $parts[$i];
+                    $cidr_prefix += 8;
+                } else {
+                    $ip_parts[] = '0';
+                }
+            }
+            
+            $ip = implode('.', $ip_parts);
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                return $ip . '/' . $cidr_prefix;
+            }
+        } else {
+            // 일반 IP인 경우
+            if (filter_var($pattern, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                return $pattern;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 그누보드 패턴(+)을 실제 IP로 변환 (첫 번째 IP만)
+     */
+    private static function convert_gnuboard_pattern_to_ip($pattern) {
+        if (strpos($pattern, '+') !== false) {
+            // 123.123.+ -> 123.123.0.1 (대표 IP)
+            $parts = explode('.', $pattern);
+            $ip_parts = [];
+            
+            for ($i = 0; $i < 4; $i++) {
+                if (isset($parts[$i]) && $parts[$i] !== '+') {
+                    $ip_parts[] = $parts[$i];
+                } else {
+                    $ip_parts[] = ($i == 3) ? '1' : '0'; // 마지막 옥텟은 1로 설정
+                }
+            }
+            
+            $ip = implode('.', $ip_parts);
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                return $ip;
+            }
+        } else {
+            // 일반 IP인 경우
+            if (filter_var($pattern, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                return $pattern;
+            }
+        }
+        
+        return null;
     }
 }

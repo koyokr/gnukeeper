@@ -57,17 +57,12 @@ class GK_SpamDetector {
     public static function checkLoginAttempt($mb_id, $result) {
         global $g5;
 
-        // 로그인 실패 차단 활성화 확인
-        if (GK_Common::get_config('login_block_enabled') != '1') {
-            return true;
-        }
-
         $ip = $_SERVER['REMOTE_ADDR'];
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $url = $_SERVER['REQUEST_URI'] ?? '';
 
         if (!$result) {
-            // 로그인 실패 기록
+            // 로그인 실패 기록 (항상 기록)
             $sql = "INSERT INTO " . GK_SECURITY_LOGIN_FAIL_TABLE . "
                     (slf_ip, slf_mb_id, slf_datetime, slf_url, slf_user_agent)
                     VALUES (
@@ -79,20 +74,23 @@ class GK_SpamDetector {
                     )";
             sql_query($sql);
 
-            // 실패 횟수 확인
-            $attempt_limit = (int)GK_Common::get_config('login_attempt_limit') ?: 5;
-            $attempt_window = (int)GK_Common::get_config('login_attempt_window') ?: 300;
+            // 로그인 실패 차단이 활성화된 경우에만 차단 처리
+            if (GK_Common::get_config('login_block_enabled') == '1') {
+                // 실패 횟수 확인
+                $attempt_limit = (int)GK_Common::get_config('login_attempt_limit') ?: 5;
+                $attempt_window = (int)GK_Common::get_config('login_attempt_window') ?: 300;
 
-            $sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_LOGIN_FAIL_TABLE . "
-                    WHERE slf_ip = '" . sql_escape_string($ip) . "'
-                      AND slf_datetime >= DATE_SUB(NOW(), INTERVAL {$attempt_window} SECOND)";
+                $sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_LOGIN_FAIL_TABLE . "
+                        WHERE slf_ip = '" . sql_escape_string($ip) . "'
+                          AND slf_datetime >= DATE_SUB(NOW(), INTERVAL {$attempt_window} SECOND)";
 
-            $result = sql_query($sql);
-            if ($result && $row = sql_fetch_array($result)) {
-                if ($row['cnt'] >= $attempt_limit) {
-                    // 자동 차단 추가
-                    self::auto_block_ip($ip, 'auto_login', '과도한 로그인 시도');
-                    return false;
+                $result = sql_query($sql);
+                if ($result && $row = sql_fetch_array($result)) {
+                    if ($row['cnt'] >= $attempt_limit) {
+                        // 자동 차단 추가
+                        self::auto_block_ip($ip, 'auto_login', '과도한 로그인 시도');
+                        return false;
+                    }
                 }
             }
         } else {

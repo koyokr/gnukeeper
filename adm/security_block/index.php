@@ -57,6 +57,23 @@ $stats = $blockAdmin->getBlockStats();
                 수동으로 특정 IP나 IP 대역을 차단하여 사이트 접근을 제한할 수 있습니다.
             </div>
 
+            <!-- 그누보드 설정 동기화 -->
+            <div class="sync-section" style="margin: 16px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #374151;">
+                            🔄 그누보드 기본 IP 설정 연동
+                        </h4>
+                        <p style="margin: 0; font-size: 13px; color: #6b7280;">
+                            기존 그누보드 "접근차단 IP", "접근가능 IP" 설정을 GnuKeeper로 가져옵니다
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="syncFromGnuboard()">
+                        설정 가져오기
+                    </button>
+                </div>
+            </div>
+
             <!-- IP 추가 폼 -->
             <div class="form-section">
                 <form id="addBlockForm">
@@ -335,13 +352,27 @@ const apiCall = async (action, data = {}) => {
 };
 
 // IP 차단 관리 함수들
+// localhost IP 확인 함수 (JavaScript 버전)
+const isLocalhostIP = (ip) => {
+    const localhostPatterns = ['127.', '::1', '0.0.0.0', 'localhost'];
+    return localhostPatterns.some(pattern => ip.toLowerCase().startsWith(pattern.toLowerCase()));
+};
+
 const addIPBlock = async (event) => {
     event.preventDefault();
     const form = event.target;
     const formData = new FormData(form);
+    const ip = formData.get('block_ip').trim();
+    
+    // localhost IP 경고
+    if (isLocalhostIP(ip)) {
+        if (!confirm('⚠️ 경고: localhost 관련 IP를 차단하려고 합니다.\n\n이 IP는 목록에는 추가되지만 실제로는 차단되지 않습니다.\n(사이트 접근 불가 방지를 위한 안전 장치)\n\n계속하시겠습니까?')) {
+            return;
+        }
+    }
 
     const result = await apiCall('add_block', {
-        block_ip: formData.get('block_ip'),
+        block_ip: ip,
         block_reason: formData.get('block_reason') || ''
     });
 
@@ -384,17 +415,17 @@ const loadBlockedIPs = async () => {
                 </thead>
                 <tbody>
                     ${result.data.map(ip => `
-                        <tr>
+                        <tr${ip.is_localhost ? ' style="background-color: #fef3c7;"' : ''}>
                             <td>
-                                <div class="ip-address">${ip.ip}</div>
+                                <div class="ip-address">${ip.ip}${ip.is_localhost ? ' <span style="color: #d97706; font-size: 11px; font-weight: 600;">⚠️ LOCALHOST</span>' : ''}</div>
                                 ${ip.hit_count > 0 ? `<div class="ip-hits">적중 횟수: ${ip.hit_count}</div>` : ''}
                             </td>
                             <td>
                                 <div class="ip-reason">${ip.reason || '사유 없음'}</div>
                             </td>
                             <td>
-                                <span class="status-badge status-badge-${ip.block_type.replace('auto_', '').replace('manual', 'manual')}">
-                                    ${ip.block_type_display || '차단됨'}
+                                <span class="status-badge status-badge-${ip.is_localhost ? 'exception' : ip.block_type.replace('auto_', '').replace('manual', 'manual')}">
+                                    ${ip.is_localhost ? '차단 예외됨' : (ip.block_type_display || '차단됨')}
                                 </span>
                             </td>
                             <td>
@@ -715,6 +746,20 @@ const toggleServiceInfo = (button) => {
     } else {
         details.style.display = 'block';
         button.classList.add('expanded');
+    }
+};
+
+// 그누보드 설정 동기화
+const syncFromGnuboard = async () => {
+    if (!confirm('그누보드 기본 IP 설정을 GnuKeeper로 가져오시겠습니까?\n\n⚠️ 주의: 중복된 IP가 있을 수 있습니다.')) return;
+    
+    const result = await apiCall('sync_from_gnuboard');
+    showToast(result.message, result.success ? 'success' : 'error');
+    
+    if (result.success) {
+        loadBlockedIPs();
+        loadWhitelistIPs();
+        updateStats();
     }
 };
 

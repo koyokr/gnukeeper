@@ -8,6 +8,11 @@
 
 if (!defined('_GNUBOARD_')) exit;
 
+// 디버그 모드 활성화 (테스트용)
+if (!defined('GK_DEBUG')) {
+    define('GK_DEBUG', true);
+}
+
 // 플러그인 기본 경로
 if (!defined('GK_PLUGIN_PATH')) {
     define('GK_PLUGIN_PATH', G5_PATH . '/plugin/gnukeeper');

@@ -99,6 +99,16 @@ try {
             $result = ['success' => true, 'data' => $countries];
             break;
 
+        // 그누보드 설정 동기화
+        case 'sync_from_gnuboard':
+            try {
+                GK_BlockManager::syncFromGnuboard();
+                $result = ['success' => true, 'message' => '그누보드 IP 설정이 성공적으로 동기화되었습니다.'];
+            } catch (Exception $e) {
+                $result = ['success' => false, 'message' => '동기화 중 오류가 발생했습니다: ' . $e->getMessage()];
+            }
+            break;
+
         default:
             $result = ['success' => false, 'message' => '알 수 없는 action입니다: ' . $action];
             break;

@@ -48,6 +48,14 @@
     /* Spacing - 간격 */
     --space-1: 4px;
     --space-2: 8px;
+    
+    /* Risk Level Colors - 위험도 색상 */
+    --risk-normal: #16a34a;
+    --risk-warning: #f59e0b;
+    --risk-danger: #dc2626;
+    --risk-normal-bg: #dcfce7;
+    --risk-warning-bg: #fef3c7;
+    --risk-danger-bg: #fee2e2;
     --space-3: 12px;
     --space-4: 16px;
     --space-5: 20px;
@@ -1556,12 +1564,12 @@
 /* .status-badge 스타일은 IP TABLE COMPONENTS 섹션에서 통합 정의됨 */
 
 .status-admin {
-    background: #dc2626;
+    background: #f59e0b;
     color: white;
 }
 
 .status-member {
-    background: #f59e0b;
+    background: #3182ce;
     color: white;
 }
 
@@ -2709,6 +2717,151 @@
     font-size: 14px;
     color: #6b7280;
     margin: 0 8px;
+}
+
+/* ==========================================================================
+   LOGIN FAIL RISK STYLES - 로그인 실패 위험도 스타일
+   ========================================================================== */
+
+/* 실패 횟수 배지 */
+.fail-count {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.fail-count.normal {
+    background-color: var(--risk-normal-bg);
+    color: var(--risk-normal);
+}
+
+.fail-count.warning {
+    background-color: var(--risk-warning-bg);
+    color: var(--risk-warning);
+}
+
+.fail-count.danger {
+    background-color: var(--risk-danger-bg);
+    color: var(--risk-danger);
+}
+
+/* 행 위험도 스타일 */
+tr.medium-risk {
+    background-color: #fff8f0;
+    border-left: 3px solid var(--risk-warning);
+}
+
+tr.high-risk {
+    background-color: #fef7f7;
+    border-left: 3px solid var(--risk-danger);
+}
+
+tr.medium-risk:hover {
+    background-color: #fef3e2;
+}
+
+tr.high-risk:hover {
+    background-color: #fef2f2;
+}
+
+/* 확장 섹션 설명 */
+.expand-desc {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background-color: var(--color-gray-50);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--color-info);
+}
+
+.expand-desc small {
+    color: var(--color-gray-600);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* 대응 내용 상태 스타일 */
+.action-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.action-status.auto-blocked {
+    background-color: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+.action-status.none {
+    color: var(--color-gray-500);
+    font-size: 14px;
+}
+
+/* 텍스트 뮤트 스타일 */
+.text-muted {
+    color: var(--color-gray-500);
+    font-size: 12px;
+}
+
+/* 버튼 내 설명 스타일 */
+.btn-desc {
+    margin-top: 4px;
+    opacity: 0.8;
+}
+
+.btn-desc small {
+    color: var(--color-gray-600);
+    font-size: 11px;
+    line-height: 1.3;
+    display: block;
+}
+
+/* 텍스트 정렬 */
+.text-center {
+    text-align: center;
+}
+
+/* 테이블 레이아웃 고정 */
+table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+/* 테이블 셀 내용 래핑 */
+table td, table th {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    vertical-align: middle;
+}
+
+/* 의심 IP 섹션 - sub-card 구조 사용하므로 기본 스타일만 유지 */
+
+/* 삭제 버튼 스타일 */
+.btn-delete {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+    background: var(--color-danger);
+    color: white;
+    transform: scale(1.1);
 }
 
 /* ==========================================================================
