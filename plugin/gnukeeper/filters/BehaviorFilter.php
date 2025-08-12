@@ -11,17 +11,13 @@ class GK_BehaviorFilter {
      * 404 에러 체크
      */
     public static function check404() {
-        // 404 탐지 활성화 확인
-        if (GK_Common::get_config('behavior_404_enabled') != '1') {
-            return true;
-        }
-
         $ip = $_SERVER['REMOTE_ADDR'];
         $url = $_SERVER['REQUEST_URI'] ?? '';
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        $is_blocking_enabled = GK_Common::get_config('behavior_404_enabled') == '1';
 
-        // 404 로그 기록
+        // 항상 404 로그 기록 (OFF 상태에서도)
         $sql = "INSERT INTO " . GK_SECURITY_404_LOG_TABLE . "
                 (sl4_ip, sl4_url, sl4_user_agent, sl4_referer, sl4_datetime)
                 VALUES (
@@ -33,20 +29,22 @@ class GK_BehaviorFilter {
                 )";
         sql_query($sql);
 
-        // 404 횟수 확인
-        $limit = (int)GK_Common::get_config('behavior_404_limit') ?: 10;
-        $window = (int)GK_Common::get_config('behavior_404_window') ?: 300;
+        if ($is_blocking_enabled) {
+            // ON 상태에서만 차단 로직 실행
+            $limit = (int)GK_Common::get_config('behavior_404_limit') ?: 10;
+            $window = (int)GK_Common::get_config('behavior_404_window') ?: 300;
 
-        $sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_404_LOG_TABLE . "
-                WHERE sl4_ip = '" . sql_escape_string($ip) . "'
-                  AND sl4_datetime >= DATE_SUB(NOW(), INTERVAL {$window} SECOND)";
+            $sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_404_LOG_TABLE . "
+                    WHERE sl4_ip = '" . sql_escape_string($ip) . "'
+                      AND sl4_datetime >= DATE_SUB(NOW(), INTERVAL {$window} SECOND)";
 
-        $result = sql_query($sql);
-        if ($result && $row = sql_fetch_array($result)) {
-            if ($row['cnt'] >= $limit) {
-                // 자동 차단
-                self::auto_block($ip, 'behavior_404', '과도한 404 에러 발생');
-                return false;
+            $result = sql_query($sql);
+            if ($result && $row = sql_fetch_array($result)) {
+                if ($row['cnt'] >= $limit) {
+                    // 자동 차단
+                    self::auto_block($ip, 'behavior_404', '과도한 404 에러 발생');
+                    return false;
+                }
             }
         }
 
@@ -57,19 +55,15 @@ class GK_BehaviorFilter {
      * 레퍼러 체크
      */
     public static function checkReferer($expected_referer) {
-        // 레퍼러 검증 활성화 확인
-        if (GK_Common::get_config('behavior_referer_enabled') != '1') {
-            return true;
-        }
-
         $ip = $_SERVER['REMOTE_ADDR'];
         $url = $_SERVER['REQUEST_URI'] ?? '';
         $actual_referer = $_SERVER['HTTP_REFERER'] ?? '';
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $is_blocking_enabled = GK_Common::get_config('behavior_referer_enabled') == '1';
 
         // 레퍼러가 예상과 다른 경우
         if (!empty($expected_referer) && $actual_referer != $expected_referer) {
-            // 로그 기록
+            // 항상 로그 기록 (OFF 상태에서도)
             $sql = "INSERT INTO " . GK_SECURITY_REFERER_LOG_TABLE . "
                     (srl_ip, srl_url, srl_expected_referer, srl_actual_referer, srl_user_agent, srl_datetime)
                     VALUES (
@@ -82,9 +76,11 @@ class GK_BehaviorFilter {
                     )";
             sql_query($sql);
 
-            // 차단 처리
-            self::auto_block($ip, 'behavior_referer', '비정상적인 레퍼러');
-            return false;
+            if ($is_blocking_enabled) {
+                // ON 상태에서만 차단 처리
+                self::auto_block($ip, 'behavior_referer', '비정상적인 레퍼러');
+                return false;
+            }
         }
 
         return true;

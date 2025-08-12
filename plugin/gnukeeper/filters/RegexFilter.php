@@ -11,12 +11,8 @@ class GK_RegexFilter {
      * 콘텐츠 검사
      */
     public static function check($board, $wr_id) {
-        // 정규식 스팸 차단 활성화 확인
-        if (GK_Common::get_config('regex_spam_enabled') != '1') {
-            return true;
-        }
-
         global $write, $wr_subject, $wr_content, $wr_name, $wr_email;
+        $is_blocking_enabled = GK_Common::get_config('regex_spam_enabled') == '1';
 
         // 검사 대상 설정
         $check_title = GK_Common::get_config('regex_spam_check_title') == '1';
@@ -64,21 +60,24 @@ class GK_RegexFilter {
                 }
 
                 if (@preg_match($pattern, $text, $matches)) {
-                    // 스팸 탐지됨
+                    // 항상 스팸 탐지 로그 기록 (OFF 상태에서도)
                     self::log_detection($rule, $text, $matches[0] ?? '', $board, $wr_id);
 
                     // 매칭 횟수 증가
                     self::increment_hit_count($rule['srs_id']);
 
-                    // 자동 IP 차단 (설정에 따라)
-                    if (GK_Common::get_config('regex_spam_auto_block') == '1') {
-                        $ip = $_SERVER['REMOTE_ADDR'];
-                        $reason = '정규식 스팸 탐지: ' . $rule['srs_name'];
-                        GK_SpamDetector::auto_block_ip($ip, 'auto_regex', $reason);
-                    }
+                    if ($is_blocking_enabled) {
+                        // ON 상태에서만 차단 처리
+                        // 자동 IP 차단 (설정에 따라)
+                        if (GK_Common::get_config('regex_spam_auto_block') == '1') {
+                            $ip = $_SERVER['REMOTE_ADDR'];
+                            $reason = '정규식 스팸 탐지: ' . $rule['srs_name'];
+                            GK_SpamDetector::auto_block_ip($ip, 'auto_regex', $reason);
+                        }
 
-                    // 액션 처리
-                    return self::handle_action($rule['srs_action']);
+                        // 액션 처리
+                        return self::handle_action($rule['srs_action']);
+                    }
                 }
             }
         }
