@@ -414,7 +414,6 @@ const loadBotLogs = async (page = 1) => {
                         <th>User-Agent</th>
                         <th>탐지 시간</th>
                         <th>요청 URL</th>
-                        <th>상태</th>
                         <th>처리 기능</th>
                     </tr>
                 </thead>
@@ -445,14 +444,7 @@ const loadBotLogs = async (page = 1) => {
                             <td>
                                 <div>
                                     ${log.action_status === 'auto_blocked' 
-                                        ? '<span class="action-status auto-blocked">🔒 차단됨</span>' 
-                                        : '<span class="action-status detected">📝 탐지만</span>'}
-                                </div>
-                            </td>
-                            <td>
-                                <div>
-                                    ${log.action_status === 'auto_blocked' 
-                                        ? '<span class="text-muted">차단됨</span>' 
+                                        ? '<span class="btn btn-sm btn-success" style="background-color: #d4edda; border-color: #c3e6cb; color: #155724; cursor: default; white-space: nowrap;">✓ IP 차단 완료</span>' 
                                         : `<button class="btn btn-sm btn-danger" onclick="addToBlockList('${log.sl_ip}', this)">IP 차단</button>`}
                                 </div>
                             </td>
@@ -504,12 +496,8 @@ const addToBlockList = async (ip, button) => {
     showToast(result.message, result.success ? 'success' : 'error');
 
     if (result.success) {
-        // 성공시 버튼 텍스트 변경
-        button.parentElement.innerHTML = '<span class="text-muted">차단됨</span>';
-        
-        // 대응 내용 칸도 업데이트
-        const actionCell = button.closest('tr').querySelector('td:nth-child(5)');
-        actionCell.innerHTML = '<span class="action-status auto-blocked">🔒 수동차단</span>';
+        // 성공시 봇 로그 리로드
+        loadBotLogs();
     } else {
         // 실패시 버튼 복구
         button.disabled = false;

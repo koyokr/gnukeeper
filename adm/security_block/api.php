@@ -6,6 +6,10 @@
  * Plugin의 GK_BlockAdmin 클래스를 사용하여 비즈니스 로직 처리
  */
 
+// 오류 표시 비활성화 (프로덕션용)
+error_reporting(0);
+ini_set('display_errors', 0);
+
 require_once './_common.php';
 
 // JSON 응답을 위한 헤더 설정

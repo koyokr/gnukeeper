@@ -265,8 +265,15 @@ class GK_SpamAdmin {
         $sql = "DELETE FROM " . GK_SECURITY_LOGIN_FAIL_TABLE . "
                 WHERE slf_datetime < DATE_SUB(NOW(), INTERVAL " . (int)$days . " DAY)";
 
-        if (sql_query($sql)) {
-            $affected = sql_affected_rows();
+        $result = sql_query($sql);
+        if ($result) {
+            global $g5;
+            $affected = 0;
+            if (function_exists('mysqli_affected_rows') && G5_MYSQLI_USE) {
+                $affected = mysqli_affected_rows($g5['connect_db']);
+            } else {
+                $affected = mysql_affected_rows($g5['connect_db']);
+            }
             return array('success' => true, 'message' => $affected . '개 기록이 삭제되었습니다.');
         } else {
             return array('success' => false, 'message' => '기록 삭제에 실패했습니다.');
@@ -280,8 +287,15 @@ class GK_SpamAdmin {
         $sql = "DELETE FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
                 WHERE sl_datetime < DATE_SUB(NOW(), INTERVAL " . (int)$days . " DAY)";
 
-        if (sql_query($sql)) {
-            $affected = sql_affected_rows();
+        $result = sql_query($sql);
+        if ($result) {
+            global $g5;
+            $affected = 0;
+            if (function_exists('mysqli_affected_rows') && G5_MYSQLI_USE) {
+                $affected = mysqli_affected_rows($g5['connect_db']);
+            } else {
+                $affected = mysql_affected_rows($g5['connect_db']);
+            }
             return array('success' => true, 'message' => $affected . '개 기록이 삭제되었습니다.');
         } else {
             return array('success' => false, 'message' => '기록 삭제에 실패했습니다.');
@@ -366,11 +380,10 @@ class GK_SpamAdmin {
 
         if ($result) {
             while ($row = sql_fetch_array($result)) {
-                // User-Agent 필터로 인한 차단 상태만 확인
-                $block_check_sql = "SELECT sb_reason FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                // 해당 IP가 차단 목록에 있는지 확인 (모든 차단 타입 포함)
+                $block_check_sql = "SELECT sb_reason, sb_block_type FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
                                    WHERE sb_ip = '" . sql_escape_string($row['sl_ip']) . "'
-                                   AND sb_status = 'active'
-                                   AND sb_block_type = 'auto_useragent'";
+                                   AND sb_status = 'active'";
                 
                 $block_result = sql_query($block_check_sql, false);
                 if ($block_result && sql_num_rows($block_result) > 0) {

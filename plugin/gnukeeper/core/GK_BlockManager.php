@@ -218,17 +218,38 @@ class GK_BlockManager {
             return false;
         }
 
-        // CIDR 범위 계산
-        $range = GK_Common::parse_cidr($normalized_ip);
-        if (!$range) {
-            return false;
+        // 먼저 IP 문자열로 직접 삭제 시도 (가장 확실한 방법)
+        $sql = "DELETE FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                WHERE sb_ip = '" . sql_escape_string($normalized_ip) . "'";
+        
+        $result = sql_query($sql, false);
+        
+        // 직접 삭제가 실패했거나 영향받은 행이 없으면 범위로 시도
+        $affected = 0;
+        if ($result) {
+            global $g5;
+            if (function_exists('mysqli_affected_rows') && G5_MYSQLI_USE) {
+                $affected = mysqli_affected_rows($g5['connect_db']);
+            } else {
+                $affected = mysql_affected_rows($g5['connect_db']);
+            }
+        }
+        
+        if (!$result || $affected == 0) {
+            // CIDR 범위 계산
+            $range = GK_Common::parse_cidr($normalized_ip);
+            if (!$range) {
+                return false;
+            }
+
+            $sql = "DELETE FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                    WHERE sb_start_ip = " . $range['start'] . "
+                      AND sb_end_ip = " . $range['end'];
+
+            $result = sql_query($sql, false);
         }
 
-        $sql = "DELETE FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
-                WHERE sb_start_ip = " . $range['start'] . "
-                  AND sb_end_ip = " . $range['end'];
-
-        return sql_query($sql, false);
+        return $result;
     }
 
     /**
