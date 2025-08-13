@@ -87,6 +87,125 @@ class GK_BehaviorFilter {
     }
 
     /**
+     * 비즈니스 로직 기반 Referer 검증
+     */
+    public static function checkBusinessReferer() {
+        $current_script = $_SERVER['SCRIPT_NAME'] ?? '';
+        $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $is_blocking_enabled = GK_Common::get_config('behavior_referer_enabled') == '1';
+        
+        // POST 요청이 아니면 검사하지 않음 (GET은 북마크 등 정상 접근 가능)
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return true;
+        }
+        
+        // Referer 검증이 필요한 페이지 목록
+        $referer_required_pages = [
+            // 최고 우선순위 - 인증 관련 (즉시 차단)
+            '/bbs/login_check.php' => ['priority' => 'HIGH', 'reason' => '로그인 처리'],
+            '/bbs/password_check.php' => ['priority' => 'HIGH', 'reason' => '비밀번호 확인'],
+            '/bbs/register_form_update.php' => ['priority' => 'HIGH', 'reason' => '회원가입 처리'],
+            '/bbs/password_reset_update.php' => ['priority' => 'HIGH', 'reason' => '비밀번호 재설정'],
+            
+            // 높은 우선순위 - 게시판 작성/수정 (즉시 차단)
+            '/bbs/write_update.php' => ['priority' => 'HIGH', 'reason' => '게시글 작성'],
+            '/bbs/write_comment_update.php' => ['priority' => 'HIGH', 'reason' => '댓글 작성'],
+            '/bbs/qawrite_update.php' => ['priority' => 'HIGH', 'reason' => 'Q&A 작성'],
+            '/bbs/memo_form_update.php' => ['priority' => 'HIGH', 'reason' => '쪽지 발송'],
+            '/bbs/scrap_popin_update.php' => ['priority' => 'HIGH', 'reason' => '스크랩'],
+            '/bbs/good.php' => ['priority' => 'HIGH', 'reason' => '추천'],
+            '/bbs/nogood.php' => ['priority' => 'HIGH', 'reason' => '비추천'],
+            '/bbs/move_update.php' => ['priority' => 'HIGH', 'reason' => '게시글 이동'],
+            
+            // 중간 우선순위 - 관리 액션
+            '/bbs/member_confirm.php' => ['priority' => 'MEDIUM', 'reason' => '회원정보 수정'],
+            '/bbs/register_email_update.php' => ['priority' => 'MEDIUM', 'reason' => '이메일 인증'],
+            '/bbs/board_list_update.php' => ['priority' => 'MEDIUM', 'reason' => '게시판 관리'],
+            '/bbs/poll_update.php' => ['priority' => 'MEDIUM', 'reason' => '투표 참여'],
+            '/bbs/poll_etc_update.php' => ['priority' => 'MEDIUM', 'reason' => '기타 투표'],
+            
+            // 관리자 전용 (최고 우선순위)
+            '/adm/member_form_update.php' => ['priority' => 'HIGH', 'reason' => '회원 관리'],
+            '/adm/config_form_update.php' => ['priority' => 'HIGH', 'reason' => '환경설정'],
+            '/adm/board_form_update.php' => ['priority' => 'HIGH', 'reason' => '게시판 설정'],
+            '/adm/auth_update.php' => ['priority' => 'HIGH', 'reason' => '권한 관리']
+        ];
+        
+        // 현재 페이지가 검증 대상인지 확인
+        if (!isset($referer_required_pages[$current_script])) {
+            return true; // 검증 대상 아님
+        }
+        
+        $page_info = $referer_required_pages[$current_script];
+        
+        // Referer 없음 = 의심
+        if (empty($referer)) {
+            // 로그 기록 (기능 OFF여도 기록)
+            self::logSuspiciousReferer($ip, $current_script, '', 'Referer 헤더 없음', $page_info['reason'], $page_info['priority']);
+            
+            // 활성화 상태에서만 차단 처리
+            if ($is_blocking_enabled) {
+                // 모든 우선순위에서 즉시 차단 (단순화)
+                self::auto_block($ip, 'behavior_referer', $page_info['reason'] . ' - Referer 없음');
+                
+                // 403 응답 후 종료
+                header('HTTP/1.1 403 Forbidden');
+                die('Access Denied: Invalid request source');
+            }
+        }
+        
+        // 외부 도메인 체크
+        if (!empty($referer)) {
+            $referer_host = parse_url($referer, PHP_URL_HOST);
+            $current_host = $_SERVER['HTTP_HOST'] ?? '';
+            
+            if ($referer_host !== $current_host && !empty($referer_host)) {
+                self::logSuspiciousReferer($ip, $current_script, $referer, '외부 도메인', $page_info['reason'], $page_info['priority']);
+                
+                if ($is_blocking_enabled) {
+                    self::auto_block($ip, 'behavior_referer', $page_info['reason'] . ' - 외부 도메인');
+                    header('HTTP/1.1 403 Forbidden');
+                    die('Access Denied: External domain not allowed');
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Referer 의심 로그 기록
+     */
+    private static function logSuspiciousReferer($ip, $url, $referer, $issue_type, $reason, $priority) {
+        // Referer 로그 테이블에 기록
+        $sql = "INSERT INTO " . GK_SECURITY_REFERER_LOG_TABLE . "
+                (srl_ip, srl_url, srl_expected_referer, srl_actual_referer, srl_user_agent, srl_datetime)
+                VALUES (
+                    '" . sql_escape_string($ip) . "',
+                    '" . sql_escape_string($url) . "',
+                    '" . sql_escape_string('REQUIRED') . "',
+                    '" . sql_escape_string($referer) . "',
+                    '" . sql_escape_string($_SERVER['HTTP_USER_AGENT'] ?? '') . "',
+                    NOW()
+                )";
+        sql_query($sql);
+        
+        // 스팸 로그에도 기록 (통합 조회용)
+        $log_reason = "비정상 Referer - {$reason} ({$issue_type}) [우선순위: {$priority}]";
+        $sql2 = "INSERT INTO " . GK_SECURITY_SPAM_LOG_TABLE . "
+                (sl_ip, sl_reason, sl_url, sl_user_agent, sl_datetime)
+                VALUES (
+                    '" . sql_escape_string($ip) . "',
+                    '" . sql_escape_string($log_reason) . "',
+                    '" . sql_escape_string($url) . "',
+                    '" . sql_escape_string($_SERVER['HTTP_USER_AGENT'] ?? '') . "',
+                    NOW()
+                )";
+        sql_query($sql2);
+    }
+
+    /**
      * 자동 차단
      */
     private static function auto_block($ip, $type, $reason) {

@@ -90,6 +90,16 @@ if (gk_get_config('behavior_404_enabled') == '1' || gk_get_config('behavior_refe
     require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
 }
 
+// 비즈니스 로직 기반 Referer 검증 (모든 요청에서 실행)
+if (gk_get_config('behavior_referer_enabled') == '1') {
+    require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
+    add_event('common_start', 'gk_business_referer_check', 3);
+    function gk_business_referer_check() {
+        // IP 차단 체크 이후에 실행 (우선순위 3)
+        GK_BehaviorFilter::checkBusinessReferer();
+    }
+}
+
 // ========================================
 // 6. 이벤트 훅 등록
 // ========================================
