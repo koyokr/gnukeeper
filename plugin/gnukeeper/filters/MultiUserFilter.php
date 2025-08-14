@@ -52,8 +52,62 @@ class GK_MultiUserFilter {
      * 다중 회원가입 체크
      */
     public static function checkMultiRegister($mb_id, $mb_email) {
-        // 이미 GK_SpamDetector::checkRegistration()에서 처리
-        // 필요시 추가 로직 구현
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $today = date('Y-m-d');
+        
+        // 오늘 날짜의 해당 IP 등록 기록 조회
+        $check_sql = "SELECT * FROM g5_security_multiuser_log 
+                     WHERE smu_ip = '" . sql_escape_string($ip) . "' 
+                     AND smu_date = '$today'";
+        
+        $result = sql_query($check_sql);
+        
+        if ($result && $row = sql_fetch_array($result)) {
+            // 기존 기록이 있으면 업데이트
+            $current_count = $row['smu_count'] + 1;
+            $member_list = $row['smu_member_list'];
+            
+            // 새로운 회원 ID를 목록 맨 앞에 추가 (최신 순서)
+            if (empty($member_list)) {
+                $new_member_list = $mb_id;
+            } else {
+                $new_member_list = $mb_id . ', ' . $member_list;
+            }
+            
+            $update_sql = "UPDATE g5_security_multiuser_log SET 
+                          smu_count = $current_count,
+                          smu_member_list = '" . sql_escape_string($new_member_list) . "',
+                          smu_last_detected = NOW()
+                          WHERE smu_id = " . (int)$row['smu_id'];
+            
+            sql_query($update_sql);
+            
+            // 3개 이상이면 차단 여부 확인
+            if ($current_count >= 3) {
+                $is_blocking_enabled = GK_Common::get_config('multiuser_register_enabled') == '1';
+                if ($is_blocking_enabled) {
+                    // 자동 차단
+                    self::auto_block($ip, 'multiuser_register', "하루에 {$current_count}개 계정 생성");
+                }
+            }
+            
+        } else {
+            // 새로운 기록 생성
+            $insert_sql = "INSERT INTO g5_security_multiuser_log 
+                          (smu_ip, smu_date, smu_count, smu_member_list, smu_first_detected, smu_last_detected, smu_blocked)
+                          VALUES (
+                              '" . sql_escape_string($ip) . "',
+                              '$today',
+                              1,
+                              '" . sql_escape_string($mb_id) . "',
+                              NOW(),
+                              NOW(),
+                              0
+                          )";
+            
+            sql_query($insert_sql);
+        }
+        
         return true;
     }
 

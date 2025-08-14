@@ -781,4 +781,155 @@ class GK_SpamAdmin {
             return array('success' => false, 'message' => '오류: ' . $e->getMessage());
         }
     }
+
+    /**
+     * 다중 사용자 탐지 로그 조회
+     */
+    public function getMultiUserLogs($page = 1, $limit = 10) {
+        global $g5;
+        
+        $offset = ($page - 1) * $limit;
+        
+        // 전체 레코드 수 (3개 이상만)
+        $count_sql = "SELECT COUNT(*) as cnt FROM g5_security_multiuser_log WHERE smu_count >= 3";
+        $count_result = sql_query($count_sql);
+        $total_count = 0;
+        
+        if ($count_result && $count_row = sql_fetch_array($count_result)) {
+            $total_count = (int)$count_row['cnt'];
+        }
+        
+        $total_pages = ceil($total_count / $limit);
+        
+        // 로그 조회 (3개 이상만, 최신순)
+        $sql = "SELECT * FROM g5_security_multiuser_log 
+                WHERE smu_count >= 3
+                ORDER BY smu_first_detected DESC 
+                LIMIT {$offset}, {$limit}";
+        
+        $result = sql_query($sql);
+        $logs = array();
+        
+        while ($row = sql_fetch_array($result)) {
+            $logs[] = $row;
+        }
+        
+        return array(
+            'logs' => $logs,
+            'total_count' => $total_count,
+            'total_pages' => $total_pages,
+            'current_page' => $page
+        );
+    }
+
+    /**
+     * 다중 사용자 탐지 로그 삭제
+     */
+    public function deleteMultiUserLog($log_id = '', $ip = '') {
+        try {
+            if (empty($log_id) && empty($ip)) {
+                return array('success' => false, 'message' => '로그 ID 또는 IP 주소가 필요합니다.');
+            }
+            
+            $sql = "DELETE FROM g5_security_multiuser_log WHERE 1=1";
+            
+            if (!empty($log_id)) {
+                $sql .= " AND smu_id = " . (int)$log_id;
+            }
+            
+            if (!empty($ip)) {
+                $sql .= " AND smu_ip = '" . sql_escape_string($ip) . "'";
+            }
+            
+            $result = sql_query($sql);
+            
+            if ($result) {
+                return array('success' => true, 'message' => '다중 사용자 탐지 로그가 삭제되었습니다.');
+            } else {
+                return array('success' => false, 'message' => '로그 삭제에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 모든 다중 사용자 탐지 로그 삭제
+     */
+    public function deleteAllMultiUserLogs() {
+        try {
+            // 먼저 존재하는 기록 수 확인
+            $count_sql = "SELECT COUNT(*) as cnt FROM g5_security_multiuser_log";
+            $count_result = sql_query($count_sql);
+            $count = 0;
+            
+            if ($count_result && $count_row = sql_fetch_array($count_result)) {
+                $count = (int)$count_row['cnt'];
+            }
+            
+            if ($count == 0) {
+                return array('success' => false, 'message' => '삭제할 다중 사용자 탐지 기록이 없습니다.');
+            }
+            
+            // 모든 기록 삭제
+            $sql = "DELETE FROM g5_security_multiuser_log";
+            $result = sql_query($sql);
+            
+            if ($result) {
+                return array(
+                    'success' => true, 
+                    'message' => "{$count}개의 다중 사용자 탐지 기록이 모두 삭제되었습니다."
+                );
+            } else {
+                return array('success' => false, 'message' => '다중 사용자 탐지 기록 삭제에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 다중 사용자 IP 차단
+     */
+    public function blockMultiUserIP($ip) {
+        try {
+            if (empty($ip)) {
+                return array('success' => false, 'message' => 'IP 주소가 필요합니다.');
+            }
+            
+            // IP 검증
+            if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                return array('success' => false, 'message' => '올바르지 않은 IP 주소입니다.');
+            }
+            
+            // 이미 차단된 IP인지 확인
+            $check_sql = "SELECT sb_ip FROM " . GK_SECURITY_IP_BLOCK_TABLE . " WHERE sb_ip = '" . sql_escape_string($ip) . "'";
+            $check_result = sql_query($check_sql);
+            
+            if (sql_num_rows($check_result) > 0) {
+                return array('success' => false, 'message' => '이미 차단된 IP입니다.');
+            }
+            
+            // IP 차단 테이블에 추가
+            $block_sql = "INSERT INTO " . GK_SECURITY_IP_BLOCK_TABLE . " 
+                         (sb_ip, sb_reason, sb_datetime) VALUES 
+                         ('" . sql_escape_string($ip) . "', '다중 계정 생성 탐지', NOW())";
+            
+            $block_result = sql_query($block_sql);
+            
+            if ($block_result) {
+                // 다중 사용자 로그에서 차단 상태 업데이트
+                $update_sql = "UPDATE g5_security_multiuser_log 
+                              SET smu_blocked = 1, smu_block_datetime = NOW() 
+                              WHERE smu_ip = '" . sql_escape_string($ip) . "'";
+                sql_query($update_sql);
+                
+                return array('success' => true, 'message' => "IP {$ip}가 성공적으로 차단되었습니다.");
+            } else {
+                return array('success' => false, 'message' => 'IP 차단에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
 }

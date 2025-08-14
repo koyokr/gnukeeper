@@ -42,6 +42,48 @@ $stats = $detectAdmin->getSpamStats();
         </div>
     </div>
 
+    <!-- 정규식 스팸 차단 -->
+    <div class="card">
+        <div class="card-header" onclick="toggleCard('spam-content-card')">
+            🔍 스팸 콘텐츠 탐지 <span id="spam-content-toggle">▶</span>
+        </div>
+        <div class="card-content" id="spam-content-card">
+            <div class="info-highlight">
+                정규식 패턴을 이용한 고급 악성 콘텐츠 탐지 및 필터링을 수행합니다.
+            </div>
+            <div class="toggle-section">
+                <div class="toggle-info">
+                    <h3 class="toggle-title">정규식 필터링</h3>
+                    <p class="toggle-desc">사용자 정의 정규식 패턴으로 스팸 콘텐츠 차단<br>
+                    <span class="toggle-desc" style="margin-top: 4px; display: inline-block;">정규식 필터링이 OFF 상태여도 차단된 스팸 IP 목록을 확인할 수 있습니다.</span></p>
+                </div>
+                <input type="checkbox"
+                       id="regex-spam-toggle"
+                       class="toggle-input"
+                       <?php echo $stats['regex_spam_enabled'] == '1' ? 'checked' : ''; ?>
+                       onchange="toggleFeature(this, 'regex_spam')">
+                <label for="regex-spam-toggle" class="toggle-switch"></label>
+            </div>
+
+            <!-- 스팸 콘텐츠 차단 목록 -->
+            <div class="sub-card">
+                <div class="sub-card-header" onclick="toggleSubCard('spam-logs-details', this)">
+                    스팸 콘텐츠 차단 IP <span class="sub-card-toggle">▶</span>
+                </div>
+                <div class="sub-card-content" id="spam-logs-details">
+                    <div id="spam-logs-table" class="ip-list">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <p>스팸 콘텐츠로 차단된 IP가 없습니다</p>
+                            <small>정규식 필터링으로 차단된 스팸 IP가 발견되지 않았습니다.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- 로그인 차단 관리 -->
     <div class="card">
         <div class="card-header" onclick="toggleCard('login-threat-card')">
@@ -199,48 +241,6 @@ $stats = $detectAdmin->getSpamStats();
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- 정규식 스팸 차단 -->
-    <div class="card">
-        <div class="card-header" onclick="toggleCard('spam-content-card')">
-            🔍 스팸 콘텐츠 탐지 <span id="spam-content-toggle">▶</span>
-        </div>
-        <div class="card-content" id="spam-content-card">
-            <div class="info-highlight">
-                정규식 패턴을 이용한 고급 악성 콘텐츠 탐지 및 필터링을 수행합니다.
-            </div>
-            <div class="toggle-section">
-                <div class="toggle-info">
-                    <h3 class="toggle-title">정규식 필터링</h3>
-                    <p class="toggle-desc">사용자 정의 정규식 패턴으로 스팸 콘텐츠 차단<br>
-                    <span class="toggle-desc" style="margin-top: 4px; display: inline-block;">정규식 필터링이 OFF 상태여도 차단된 스팸 IP 목록을 확인할 수 있습니다.</span></p>
-                </div>
-                <input type="checkbox"
-                       id="regex-spam-toggle"
-                       class="toggle-input"
-                       <?php echo $stats['regex_spam_enabled'] == '1' ? 'checked' : ''; ?>
-                       onchange="toggleFeature(this, 'regex_spam')">
-                <label for="regex-spam-toggle" class="toggle-switch"></label>
-            </div>
-
-            <!-- 스팸 콘텐츠 차단 목록 -->
-            <div class="sub-card">
-                <div class="sub-card-header" onclick="toggleSubCard('spam-logs-details', this)">
-                    스팸 콘텐츠 차단 IP <span class="sub-card-toggle">▶</span>
-                </div>
-                <div class="sub-card-content" id="spam-logs-details">
-                    <div id="spam-logs-table" class="ip-list">
-                        <div class="empty-state">
-                            <div class="empty-state-icon">🔍</div>
-                            <p>스팸 콘텐츠로 차단된 IP가 없습니다</p>
-                            <small>정규식 필터링으로 차단된 스팸 IP가 발견되지 않았습니다.</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </div>
 </div>
@@ -523,6 +523,160 @@ const deleteBehaviorLog = async (ip, button) => {
     }
 };
 
+// 다중 사용자 탐지 로그 로드
+const loadMultiUserLogs = async (page = 1) => {
+    const container = document.getElementById('multiuser-logs-table');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-spinner">로딩 중...</div>';
+
+    const result = await apiCall('get_multiuser_logs', { page: page, limit: 10 });
+
+    if (result.success && result.logs && result.logs.length > 0) {
+        container.innerHTML = `
+            <table class="ip-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <button class="btn-delete-all" onclick="deleteAllMultiUserLogs(this)" title="모든 다중 사용자 탐지 기록 삭제">
+                                🗑️
+                            </button>
+                        </th>
+                        <th>IP 주소</th>
+                        <th>계정 수</th>
+                        <th>생성된 계정</th>
+                        <th>최초 탐지</th>
+                        <th>상태</th>
+                        <th>처리 기능</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${result.logs.map(log => `
+                        <tr ${log.smu_blocked == '1' ? 'class="blocked-ip"' : ''}>
+                            <td>
+                                <button class="btn-delete" onclick="deleteMultiUserLog('${log.smu_ip}', this)" title="이 다중 사용자 탐지 기록 삭제">
+                                    ✕
+                                </button>
+                            </td>
+                            <td>
+                                <div class="ip-address">${log.smu_ip}</div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="detection-count ${log.smu_count >= 5 ? 'danger' : log.smu_count >= 3 ? 'warning' : 'normal'}">${log.smu_count}개</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="behavior-reason" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${log.smu_member_list || '정보 없음'}">
+                                    ${log.smu_member_list || '정보 없음'}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="log-time">${log.smu_first_detected}</div>
+                            </td>
+                            <td>
+                                <div>
+                                    ${log.smu_blocked == '1' 
+                                        ? '<span class="action-status blocked">🔒 차단됨</span>' 
+                                        : '<span class="action-status detected">👥 탐지됨</span>'}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    ${log.smu_blocked == '0' 
+                                        ? `<button class="btn btn-sm btn-danger" onclick="blockMultiUserIP('${log.smu_ip}', this)">IP 차단</button>`
+                                        : '<span class="text-muted">이미 차단됨</span>'}
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ${result.total_pages > 1 ? `
+                <div class="pagination">
+                    ${page > 1 ? `<button class="btn btn-secondary btn-sm" onclick="loadMultiUserLogs(${page - 1})">이전</button>` : ''}
+                    <span class="page-info">페이지 ${page} / ${result.total_pages}</span>
+                    ${page < result.total_pages ? `<button class="btn btn-secondary btn-sm" onclick="loadMultiUserLogs(${page + 1})">다음</button>` : ''}
+                </div>
+            ` : ''}
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">👥</div>
+                <p>다중 계정 의심 IP가 없습니다</p>
+                <small>하루에 3개 이상의 계정을 생성한 IP가 발견되지 않았습니다.</small>
+            </div>
+        `;
+    }
+};
+
+// 다중 사용자 IP 차단
+const blockMultiUserIP = async (ip, button) => {
+    if (!confirm(`IP ${ip}를 차단하시겠습니까?`)) return;
+
+    button.disabled = true;
+    button.textContent = '처리 중...';
+
+    const result = await apiCall('block_multiuser_ip', { ip: ip });
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadMultiUserLogs();
+    } else {
+        button.disabled = false;
+        button.textContent = 'IP 차단';
+    }
+};
+
+// 다중 사용자 탐지 기록 삭제
+const deleteMultiUserLog = async (ip, button) => {
+    if (!confirm(`IP ${ip}의 다중 사용자 탐지 기록을 삭제하시겠습니까?`)) return;
+
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '⏳';
+
+    const result = await apiCall('delete_multiuser_log', { ip: ip });
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        const row = button.closest('tr');
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+            row.remove();
+            
+            const tableBody = row.closest('tbody');
+            if (!tableBody.children.length) {
+                loadMultiUserLogs();
+            }
+        }, 300);
+    } else {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+};
+
+// 모든 다중 사용자 로그 삭제
+const deleteAllMultiUserLogs = async (button) => {
+    if (!confirm('모든 다중 사용자 탐지 로그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '⏳ 삭제 중...';
+
+    const result = await apiCall('delete_all_multiuser_logs');
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadMultiUserLogs();
+    } else {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+};
+
 // 봇 로그 로드 (User-Agent 필터로 차단된 로그)
 const loadBotLogs = async (page = 1) => {
     const result = await apiCall('get_bot_logs', { page: page, limit: 10 });
@@ -740,6 +894,9 @@ const toggleSubCard = (targetId, headerElement) => {
             headerElement.dataset.loaded = 'true';
         } else if (targetId === 'behavior-logs-details' && !headerElement.dataset.loaded) {
             loadBehaviorLogs();
+            headerElement.dataset.loaded = 'true';
+        } else if (targetId === 'multiuser-logs-details' && !headerElement.dataset.loaded) {
+            loadMultiUserLogs();
             headerElement.dataset.loaded = 'true';
         }
     }

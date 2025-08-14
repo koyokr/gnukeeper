@@ -893,4 +893,136 @@ class GK_BlockManager {
         
         return null;
     }
+    
+    /**
+     * GnuKeeper와 그누보드 IP 설정 양방향 동기화
+     */
+    public static function syncWithGnuboard() {
+        $sync_counts = [
+            'gnuboard_to_gk_blocked' => 0,
+            'gnuboard_to_gk_whitelist' => 0,
+            'gk_to_gnuboard_blocked' => 0,
+            'gk_to_gnuboard_whitelist' => 0
+        ];
+        
+        // 1단계: 그누보드 → GnuKeeper 동기화 (기존 누락된 항목 추가)
+        global $config;
+        if (isset($config)) {
+            // 그누보드 차단 IP → GnuKeeper 추가
+            if (!empty($config['cf_intercept_ip'])) {
+                $intercept_ips = explode("\n", trim($config['cf_intercept_ip']));
+                foreach ($intercept_ips as $ip) {
+                    $ip = trim($ip);
+                    if (empty($ip)) continue;
+                    
+                    $normalized_ip = self::convert_gnuboard_pattern_to_cidr($ip);
+                    if ($normalized_ip && !self::is_ip_blocked($normalized_ip)) {
+                        self::add_block($normalized_ip, '동기화: 그누보드 기본 차단 설정', 'manual');
+                        $sync_counts['gnuboard_to_gk_blocked']++;
+                    }
+                }
+            }
+            
+            // 그누보드 허용 IP → GnuKeeper 예외 IP 추가
+            if (!empty($config['cf_possible_ip'])) {
+                $possible_ips = explode("\n", trim($config['cf_possible_ip']));
+                foreach ($possible_ips as $ip) {
+                    $ip = trim($ip);
+                    if (empty($ip)) continue;
+                    
+                    $normalized_ip = self::convert_gnuboard_pattern_to_ip($ip);
+                    if ($normalized_ip && !self::is_ip_whitelisted($normalized_ip)) {
+                        self::add_whitelist($normalized_ip, '동기화: 그누보드 접근가능 IP');
+                        $sync_counts['gnuboard_to_gk_whitelist']++;
+                    }
+                }
+            }
+        }
+        
+        // 2단계: GnuKeeper → 그누보드 동기화 (설정 반영)
+        $manual_blocks = self::getManualBlocks();
+        $whitelist_ips = self::getWhitelistIPs();
+        
+        // 기존 그누보드 설정 가져오기
+        $existing_intercept = isset($config['cf_intercept_ip']) ? array_filter(explode("\n", trim($config['cf_intercept_ip']))) : [];
+        $existing_possible = isset($config['cf_possible_ip']) ? array_filter(explode("\n", trim($config['cf_possible_ip']))) : [];
+        
+        // GnuKeeper 수동 차단 IP를 그누보드에 추가
+        $new_intercept_ips = $existing_intercept;
+        foreach ($manual_blocks as $block) {
+            if (!in_array($block['sb_ip'], $existing_intercept)) {
+                $new_intercept_ips[] = $block['sb_ip'];
+                $sync_counts['gk_to_gnuboard_blocked']++;
+            }
+        }
+        
+        // GnuKeeper 예외 IP를 그누보드에 추가
+        $new_possible_ips = $existing_possible;
+        foreach ($whitelist_ips as $whitelist) {
+            if (!in_array($whitelist['sw_ip'], $existing_possible)) {
+                $new_possible_ips[] = $whitelist['sw_ip'];
+                $sync_counts['gk_to_gnuboard_whitelist']++;
+            }
+        }
+        
+        // 그누보드 설정 업데이트
+        $intercept_ip_str = implode("\n", $new_intercept_ips);
+        $possible_ip_str = implode("\n", $new_possible_ips);
+        
+        $sql = "UPDATE " . G5_TABLE_PREFIX . "config SET 
+                cf_intercept_ip = '" . sql_escape_string($intercept_ip_str) . "',
+                cf_possible_ip = '" . sql_escape_string($possible_ip_str) . "'";
+        sql_query($sql);
+        
+        // 결과 메시지 생성
+        $message_parts = [];
+        $total_synced = array_sum($sync_counts);
+        
+        if ($total_synced > 0) {
+            $message_parts[] = "🔄 동기화 완료: {$total_synced}개 항목 처리";
+            
+            if ($sync_counts['gnuboard_to_gk_blocked'] > 0) {
+                $message_parts[] = "• 그누보드→GnuKeeper 차단: {$sync_counts['gnuboard_to_gk_blocked']}개";
+            }
+            if ($sync_counts['gnuboard_to_gk_whitelist'] > 0) {
+                $message_parts[] = "• 그누보드→GnuKeeper 예외: {$sync_counts['gnuboard_to_gk_whitelist']}개";
+            }
+            if ($sync_counts['gk_to_gnuboard_blocked'] > 0) {
+                $message_parts[] = "• GnuKeeper→그누보드 차단: {$sync_counts['gk_to_gnuboard_blocked']}개";
+            }
+            if ($sync_counts['gk_to_gnuboard_whitelist'] > 0) {
+                $message_parts[] = "• GnuKeeper→그누보드 예외: {$sync_counts['gk_to_gnuboard_whitelist']}개";
+            }
+        } else {
+            $message_parts[] = "✅ 이미 모든 설정이 동기화되어 있습니다";
+        }
+        
+        return [
+            'counts' => $sync_counts,
+            'message' => implode("\n", $message_parts)
+        ];
+    }
+    
+    /**
+     * IP가 이미 차단되어 있는지 확인
+     */
+    private static function is_ip_blocked($ip) {
+        $sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                WHERE sb_ip = '" . sql_escape_string($ip) . "' 
+                AND sb_status = 'active'";
+        $result = sql_query($sql);
+        $row = sql_fetch_array($result);
+        return $row['cnt'] > 0;
+    }
+    
+    /**
+     * IP가 이미 예외 목록에 있는지 확인
+     */
+    private static function is_ip_whitelisted($ip) {
+        $sql = "SELECT COUNT(*) as cnt FROM " . G5_TABLE_PREFIX . "security_ip_whitelist
+                WHERE sw_ip = '" . sql_escape_string($ip) . "'";
+        $result = sql_query($sql);
+        $row = sql_fetch_array($result);
+        return $row['cnt'] > 0;
+    }
 }

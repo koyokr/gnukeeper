@@ -62,14 +62,14 @@ $stats = $blockAdmin->getBlockStats();
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <div>
                         <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #374151;">
-                            🔄 그누보드 기본 IP 설정 연동
+                            🔄 그누보드 기본 IP 설정 동기화
                         </h4>
                         <p style="margin: 0; font-size: 13px; color: #6b7280;">
-                            기존 그누보드 "접근차단 IP", "접근가능 IP" 설정을 GnuKeeper로 가져옵니다
+                            GnuKeeper와 그누보드 기본 IP 설정을 양방향으로 동기화합니다
                         </p>
                     </div>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="syncFromGnuboard()">
-                        설정 가져오기
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="syncWithGnuboard()">
+                        동기화
                     </button>
                 </div>
             </div>
@@ -750,10 +750,10 @@ const toggleServiceInfo = (button) => {
 };
 
 // 그누보드 설정 동기화
-const syncFromGnuboard = async () => {
-    if (!confirm('그누보드 기본 IP 설정을 GnuKeeper로 가져오시겠습니까?\n\n⚠️ 주의: 중복된 IP가 있을 수 있습니다.')) return;
+const syncWithGnuboard = async () => {
+    if (!confirm('GnuKeeper와 그누보드 기본 IP 설정을 동기화하시겠습니까?\n\n🔄 양방향 동기화를 수행합니다.\n- GnuKeeper → 그누보드 기본 설정 반영\n- 그누보드 → GnuKeeper 누락된 설정 추가')) return;
     
-    const result = await apiCall('sync_from_gnuboard');
+    const result = await apiCall('sync_with_gnuboard');
     showToast(result.message, result.success ? 'success' : 'error');
     
     if (result.success) {

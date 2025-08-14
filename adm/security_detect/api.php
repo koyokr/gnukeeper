@@ -193,6 +193,43 @@ try {
             echo json_encode($result);
             break;
 
+        case 'get_multiuser_logs':
+            $page = (int)($_POST['page'] ?? 1);
+            $limit = (int)($_POST['limit'] ?? 10);
+            $result = $spamAdmin->getMultiUserLogs($page, $limit);
+            echo json_encode(['success' => true] + $result);
+            break;
+
+        case 'delete_multiuser_log':
+            $log_id = $_POST['log_id'] ?? '';
+            $ip = $_POST['ip'] ?? '';
+            
+            if (empty($log_id) && empty($ip)) {
+                echo json_encode(['success' => false, 'message' => '로그 ID 또는 IP 주소가 필요합니다.']);
+                break;
+            }
+            
+            $result = $spamAdmin->deleteMultiUserLog($log_id, $ip);
+            echo json_encode($result);
+            break;
+
+        case 'delete_all_multiuser_logs':
+            $result = $spamAdmin->deleteAllMultiUserLogs();
+            echo json_encode($result);
+            break;
+
+        case 'block_multiuser_ip':
+            $ip = $_POST['ip'] ?? '';
+            
+            if (empty($ip)) {
+                echo json_encode(['success' => false, 'message' => 'IP 주소가 필요합니다.']);
+                break;
+            }
+            
+            $result = $spamAdmin->blockMultiUserIP($ip);
+            echo json_encode($result);
+            break;
+
         default:
             echo json_encode(['success' => false, 'message' => '지원하지 않는 액션입니다.']);
             break;
