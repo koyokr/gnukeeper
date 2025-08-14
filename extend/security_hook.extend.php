@@ -90,14 +90,21 @@ if (gk_get_config('behavior_404_enabled') == '1' || gk_get_config('behavior_refe
     require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
 }
 
-// 비즈니스 로직 기반 Referer 검증 (모든 요청에서 실행)
-if (gk_get_config('behavior_referer_enabled') == '1') {
-    require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
-    add_event('common_start', 'gk_business_referer_check', 3);
-    function gk_business_referer_check() {
-        // IP 차단 체크 이후에 실행 (우선순위 3)
-        GK_BehaviorFilter::checkBusinessReferer();
-    }
+// 비즈니스 로직 기반 Referer 검증 (항상 실행 - OFF 상태에서도 로그 기록)
+require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
+
+// 직접 실행 (이벤트 시스템 문제 우회)
+$request_method = $_SERVER['REQUEST_METHOD'] ?? '';
+$current_script = $_SERVER['SCRIPT_NAME'] ?? '';
+
+// 디버깅 로그
+error_log("Security Hook Debug: Method=$request_method, Script=$current_script", 3, '/tmp/security_hook_debug.log');
+
+if ($request_method === 'POST') {
+    error_log("POST request detected, calling checkBusinessReferer()", 3, '/tmp/security_hook_debug.log');
+    GK_BehaviorFilter::checkBusinessReferer();
+} else {
+    error_log("Not a POST request, skipping referer check", 3, '/tmp/security_hook_debug.log');
 }
 
 // ========================================

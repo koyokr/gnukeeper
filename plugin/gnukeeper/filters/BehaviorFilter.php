@@ -90,10 +90,16 @@ class GK_BehaviorFilter {
      * 비즈니스 로직 기반 Referer 검증
      */
     public static function checkBusinessReferer() {
+        // 디버깅 로그 추가
+        error_log("checkBusinessReferer() called - " . date('Y-m-d H:i:s'), 3, '/tmp/behavior_debug.log');
+        
         $current_script = $_SERVER['SCRIPT_NAME'] ?? '';
         $referer = $_SERVER['HTTP_REFERER'] ?? '';
         $ip = $_SERVER['REMOTE_ADDR'];
         $is_blocking_enabled = GK_Common::get_config('behavior_referer_enabled') == '1';
+        
+        // 상세 정보 로그
+        error_log("Script: {$current_script}, Method: " . ($_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN') . ", Referer: {$referer}", 3, '/tmp/behavior_debug.log');
         
         // POST 요청이 아니면 검사하지 않음 (GET은 북마크 등 정상 접근 가능)
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

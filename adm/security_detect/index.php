@@ -331,7 +331,11 @@ const loadLoginFailLogs = async (page = 1) => {
             <table class="ip-table">
                 <thead>
                     <tr>
-                        <th style="width: 50px;"></th>
+                        <th style="width: 50px;">
+                            <button class="btn-delete-all" onclick="deleteAllLoginFail()" title="모든 로그인 실패 기록 삭제">
+                                🗑️
+                            </button>
+                        </th>
                         <th>IP 주소</th>
                         <th>사용자 ID</th>
                         <th>실패 횟수</th>
@@ -399,6 +403,126 @@ const loadLoginFailLogs = async (page = 1) => {
     }
 };
 
+// 비정상 행동 탐지 로그 로드
+const loadBehaviorLogs = async (page = 1) => {
+    const result = await apiCall('get_behavior_logs', { page: page, limit: 10 });
+    const container = document.getElementById('behavior-logs-table');
+
+    if (result.success && result.data.length > 0) {
+        container.innerHTML = `
+            <table class="ip-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <button class="btn-delete-all" onclick="deleteAllBehaviorLogs()" title="모든 비정상 행동 탐지 기록 삭제">
+                                🗑️
+                            </button>
+                        </th>
+                        <th>IP 주소</th>
+                        <th>탐지 사유</th>
+                        <th>탐지 횟수</th>
+                        <th>최근 탐지</th>
+                        <th>상태</th>
+                        <th>처리 기능</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${result.data.map(log => `
+                        <tr ${log.action_status === 'blocked' ? 'class="blocked-ip"' : ''}>
+                            <td>
+                                <button class="btn-delete" onclick="deleteBehaviorLog('${log.sb_ip}', this)" title="이 비정상 행동 탐지 기록 삭제">
+                                    ✕
+                                </button>
+                            </td>
+                            <td>
+                                <div class="ip-address">${log.sb_ip}</div>
+                            </td>
+                            <td>
+                                <div class="behavior-reason" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${log.last_activity_reason}">
+                                    ${log.last_activity_reason}
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="detection-count ${log.block_count >= 10 ? 'danger' : log.block_count >= 5 ? 'warning' : 'normal'}">${log.block_count || log.detection_count}회</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="log-time">${log.last_activity_time}</div>
+                            </td>
+                            <td>
+                                <div>
+                                    ${log.action_status === 'blocked' 
+                                        ? '<span class="action-status blocked">🔒 차단됨</span>' 
+                                        : '<span class="action-status detected">⚠️ 탐지됨</span>'}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    ${log.action_status !== 'blocked' 
+                                        ? `<button class="btn btn-sm btn-danger" onclick="addToBlockList('${log.sb_ip}', this)">IP 차단</button>`
+                                        : '<span class="text-muted">이미 차단됨</span>'}
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ${result.total_pages > 1 ? `
+                <div class="pagination">
+                    ${page > 1 ? `<button class="btn btn-secondary btn-sm" onclick="loadBehaviorLogs(${page - 1})">이전</button>` : ''}
+                    <span class="page-info">페이지 ${page} / ${result.total_pages}</span>
+                    ${page < result.total_pages ? `<button class="btn btn-secondary btn-sm" onclick="loadBehaviorLogs(${page + 1})">다음</button>` : ''}
+                </div>
+            ` : ''}
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📊</div>
+                <p>비정상 행동으로 차단된 IP가 없습니다</p>
+                <small>404 스캔이나 비정상 Referer로 차단된 IP가 발견되지 않았습니다.</small>
+            </div>
+        `;
+    }
+};
+
+// 비정상 행동 탐지 기록 삭제
+const deleteBehaviorLog = async (ip, button) => {
+    if (!confirm(`IP ${ip}의 모든 비정상 행동 탐지 기록을 삭제하시겠습니까?`)) return;
+
+    // 버튼 비활성화
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '⏳';
+
+    const result = await apiCall('delete_behavior_log', { 
+        ip: ip 
+    });
+    
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        // 성공시 해당 행 제거
+        const row = button.closest('tr');
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+            row.remove();
+            
+            // 테이블이 비어있으면 다시 로드
+            const tableBody = row.closest('tbody');
+            if (!tableBody.children.length) {
+                loadBehaviorLogs();
+            }
+        }, 300);
+    } else {
+        // 실패시 버튼 복구
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+};
+
 // 봇 로그 로드 (User-Agent 필터로 차단된 로그)
 const loadBotLogs = async (page = 1) => {
     const result = await apiCall('get_bot_logs', { page: page, limit: 10 });
@@ -409,7 +533,11 @@ const loadBotLogs = async (page = 1) => {
             <table class="ip-table">
                 <thead>
                     <tr>
-                        <th style="width: 50px;"></th>
+                        <th style="width: 50px;">
+                            <button class="btn-delete-all" onclick="deleteAllBotLogs()" title="모든 봇 탐지 기록 삭제">
+                                🗑️
+                            </button>
+                        </th>
                         <th>IP 주소</th>
                         <th>User-Agent</th>
                         <th>탐지 시간</th>
@@ -610,6 +738,9 @@ const toggleSubCard = (targetId, headerElement) => {
         } else if (targetId === 'bot-logs-details' && !headerElement.dataset.loaded) {
             loadBotLogs();
             headerElement.dataset.loaded = 'true';
+        } else if (targetId === 'behavior-logs-details' && !headerElement.dataset.loaded) {
+            loadBehaviorLogs();
+            headerElement.dataset.loaded = 'true';
         }
     }
 };
@@ -628,6 +759,54 @@ function toggleCard(cardId) {
         toggle.style.transform = 'rotate(90deg)';
     }
 }
+
+// 모든 로그인 실패 기록 삭제
+const deleteAllLoginFail = async () => {
+    if (!confirm('⚠️ 모든 로그인 실패 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
+    
+    // 이중 확인
+    if (!confirm('정말로 모든 로그인 실패 기록을 삭제하시겠습니까?\n\n삭제 후에는 복구할 수 없습니다.')) return;
+
+    const result = await apiCall('delete_all_login_fail');
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        // 성공시 테이블 다시 로드
+        loadLoginFailLogs();
+    }
+};
+
+// 모든 비정상 행동 탐지 기록 삭제
+const deleteAllBehaviorLogs = async () => {
+    if (!confirm('⚠️ 모든 비정상 행동 탐지 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
+    
+    // 이중 확인
+    if (!confirm('정말로 모든 비정상 행동 탐지 기록을 삭제하시겠습니까?\n\n삭제 후에는 복구할 수 없습니다.')) return;
+
+    const result = await apiCall('delete_all_behavior_logs');
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        // 성공시 테이블 다시 로드
+        loadBehaviorLogs();
+    }
+};
+
+// 모든 봇 탐지 기록 삭제
+const deleteAllBotLogs = async () => {
+    if (!confirm('⚠️ 모든 악성 봇 탐지 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
+    
+    // 이중 확인
+    if (!confirm('정말로 모든 봇 탐지 기록을 삭제하시겠습니까?\n\n삭제 후에는 복구할 수 없습니다.')) return;
+
+    const result = await apiCall('delete_all_bot_logs');
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        // 성공시 테이블 다시 로드
+        loadBotLogs();
+    }
+};
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {

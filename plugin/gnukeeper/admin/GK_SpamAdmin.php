@@ -508,4 +508,277 @@ class GK_SpamAdmin {
             return array('success' => false, 'message' => '오류: ' . $e->getMessage());
         }
     }
+
+    /**
+     * 비정상 행동 탐지 로그 조회 (404 스캔, Referer 검증 실패 등)
+     */
+    public function getBehaviorLogs($page = 1, $limit = 10) {
+        $page = max(1, (int)$page);
+        $limit = max(1, min(100, (int)$limit));
+        $offset = ($page - 1) * $limit;
+
+        // 비정상 행동으로 차단된 IP 조회 (차단 테이블에서)
+        $blocked_ips_sql = "
+            SELECT DISTINCT sb.sb_ip, sb.sb_reason, sb.sb_datetime, sb.sb_block_type,
+                   COUNT(*) as block_count
+            FROM " . GK_SECURITY_IP_BLOCK_TABLE . " sb
+            WHERE sb.sb_status = 'active' 
+            AND (sb.sb_reason LIKE '%404%' OR sb.sb_reason LIKE '%Referer%' OR sb.sb_reason LIKE '%비정상 행동%')
+            GROUP BY sb.sb_ip
+            ORDER BY sb.sb_datetime DESC
+        ";
+
+        $blocked_result = sql_query($blocked_ips_sql, false);
+        $blocked_ips = array();
+        
+        if ($blocked_result) {
+            while ($row = sql_fetch_array($blocked_result)) {
+                // 해당 IP의 스팸 로그에서 상세 정보 가져오기
+                $detail_sql = "SELECT sl_reason, sl_url, sl_user_agent, sl_datetime
+                              FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
+                              WHERE sl_ip = '" . sql_escape_string($row['sb_ip']) . "'
+                              AND (sl_reason LIKE '%404%' OR sl_reason LIKE '%Referer%' OR sl_reason LIKE '%비정상 행동%')
+                              ORDER BY sl_datetime DESC LIMIT 1";
+                              
+                $detail_result = sql_query($detail_sql, false);
+                if ($detail_result && $detail_row = sql_fetch_array($detail_result)) {
+                    $row['last_activity_reason'] = $detail_row['sl_reason'];
+                    $row['last_activity_url'] = $detail_row['sl_url'];
+                    $row['last_activity_ua'] = $detail_row['sl_user_agent'];
+                    $row['last_activity_time'] = $detail_row['sl_datetime'];
+                } else {
+                    $row['last_activity_reason'] = $row['sb_reason'];
+                    $row['last_activity_url'] = '';
+                    $row['last_activity_ua'] = '';
+                    $row['last_activity_time'] = $row['sb_datetime'];
+                }
+                
+                $row['action_status'] = 'blocked';
+                $blocked_ips[] = $row;
+            }
+        }
+
+        // 탐지되었지만 아직 차단되지 않은 IP들도 포함
+        $detected_sql = "
+            SELECT sl_ip, COUNT(*) as detection_count, 
+                   MAX(sl_datetime) as last_detection,
+                   sl_reason, sl_url, sl_user_agent
+            FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
+            WHERE (sl_reason LIKE '%404%' OR sl_reason LIKE '%Referer%' OR sl_reason LIKE '%비정상 행동%')
+            AND sl_ip NOT IN (
+                SELECT DISTINCT sb_ip FROM " . GK_SECURITY_IP_BLOCK_TABLE . " 
+                WHERE sb_status = 'active' 
+                AND (sb_reason LIKE '%404%' OR sb_reason LIKE '%Referer%' OR sb_reason LIKE '%비정상 행동%')
+            )
+            GROUP BY sl_ip
+            HAVING detection_count >= 1
+            ORDER BY detection_count DESC, last_detection DESC
+        ";
+
+        $detected_result = sql_query($detected_sql, false);
+        $detected_ips = array();
+        
+        if ($detected_result) {
+            while ($row = sql_fetch_array($detected_result)) {
+                $row['sb_ip'] = $row['sl_ip'];
+                $row['sb_reason'] = $row['sl_reason'];
+                $row['sb_datetime'] = $row['last_detection'];
+                $row['sb_block_type'] = 'detected_only';
+                $row['block_count'] = $row['detection_count'];
+                $row['last_activity_reason'] = $row['sl_reason'];
+                $row['last_activity_url'] = $row['sl_url'];
+                $row['last_activity_ua'] = $row['sl_user_agent'];
+                $row['last_activity_time'] = $row['last_detection'];
+                $row['action_status'] = 'detected_only';
+                
+                $detected_ips[] = $row;
+            }
+        }
+
+        // 두 배열을 합치고 정렬
+        $all_ips = array_merge($blocked_ips, $detected_ips);
+        
+        // 탐지 시간/차단 시간 기준으로 정렬
+        usort($all_ips, function($a, $b) {
+            return strtotime($b['last_activity_time']) - strtotime($a['last_activity_time']);
+        });
+
+        $total = count($all_ips);
+        $logs = array_slice($all_ips, $offset, $limit);
+
+        return [
+            'data' => $logs,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => ceil($total / $limit)
+        ];
+    }
+
+    /**
+     * 비정상 행동 탐지 기록 삭제
+     */
+    public function deleteBehaviorLog($log_id, $ip) {
+        if (empty($log_id) && empty($ip)) {
+            return array('success' => false, 'message' => '로그 ID 또는 IP 주소가 필요합니다.');
+        }
+
+        try {
+            // IP 기반으로 모든 비정상 행동 탐지 기록 삭제
+            if (!empty($ip)) {
+                $ip = sql_escape_string($ip);
+                
+                $sql = "DELETE FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
+                        WHERE sl_ip = '$ip'
+                        AND (sl_reason LIKE '%404%' OR sl_reason LIKE '%Referer%' OR sl_reason LIKE '%비정상 행동%')";
+                
+                // 삭제하기 전에 먼저 개수 확인
+                $count_sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
+                             WHERE sl_ip = '$ip'
+                             AND (sl_reason LIKE '%404%' OR sl_reason LIKE '%Referer%' OR sl_reason LIKE '%비정상 행동%')";
+            } else {
+                // ID 기반 삭제
+                $log_id = (int)$log_id;
+                
+                $sql = "DELETE FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
+                        WHERE sl_id = $log_id
+                        AND (sl_reason LIKE '%404%' OR sl_reason LIKE '%Referer%' OR sl_reason LIKE '%비정상 행동%')";
+                
+                $count_sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
+                             WHERE sl_id = $log_id
+                             AND (sl_reason LIKE '%404%' OR sl_reason LIKE '%Referer%' OR sl_reason LIKE '%비정상 행동%')";
+            }
+            
+            $count_result = sql_query($count_sql);
+            $count = 0;
+            if ($count_result && $count_row = sql_fetch_array($count_result)) {
+                $count = (int)$count_row['cnt'];
+            }
+            
+            if ($count == 0) {
+                return array('success' => false, 'message' => '삭제할 기록이 없습니다.');
+            }
+            
+            $result = sql_query($sql);
+            if ($result) {
+                return array(
+                    'success' => true, 
+                    'message' => '비정상 행동 탐지 기록이 삭제되었습니다.'
+                );
+            } else {
+                return array('success' => false, 'message' => 'SQL 쿼리 실행에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 모든 로그인 실패 기록 삭제
+     */
+    public function deleteAllLoginFail() {
+        try {
+            // 먼저 존재하는 기록 수 확인
+            $count_sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_LOGIN_FAIL_TABLE;
+            $count_result = sql_query($count_sql);
+            $count = 0;
+            
+            if ($count_result && $count_row = sql_fetch_array($count_result)) {
+                $count = (int)$count_row['cnt'];
+            }
+            
+            if ($count == 0) {
+                return array('success' => false, 'message' => '삭제할 로그인 실패 기록이 없습니다.');
+            }
+            
+            // 모든 로그인 실패 기록 삭제
+            $sql = "DELETE FROM " . GK_SECURITY_LOGIN_FAIL_TABLE;
+            $result = sql_query($sql);
+            
+            if ($result) {
+                return array(
+                    'success' => true, 
+                    'message' => "{$count}개의 로그인 실패 기록이 모두 삭제되었습니다."
+                );
+            } else {
+                return array('success' => false, 'message' => '로그인 실패 기록 삭제에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 모든 비정상 행동 탐지 기록 삭제
+     */
+    public function deleteAllBehaviorLogs() {
+        try {
+            // 먼저 존재하는 기록 수 확인
+            $count_sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_SPAM_LOG_TABLE . 
+                        " WHERE sl_reason LIKE '%Referer%' OR sl_reason LIKE '%404%' OR sl_reason LIKE '%행동%'";
+            $count_result = sql_query($count_sql);
+            $count = 0;
+            
+            if ($count_result && $count_row = sql_fetch_array($count_result)) {
+                $count = (int)$count_row['cnt'];
+            }
+            
+            if ($count == 0) {
+                return array('success' => false, 'message' => '삭제할 비정상 행동 탐지 기록이 없습니다.');
+            }
+            
+            // 비정상 행동 관련 기록만 삭제 (User-Agent 필터 기록은 제외)
+            $sql = "DELETE FROM " . GK_SECURITY_SPAM_LOG_TABLE . 
+                   " WHERE sl_reason LIKE '%Referer%' OR sl_reason LIKE '%404%' OR sl_reason LIKE '%행동%'";
+            $result = sql_query($sql);
+            
+            if ($result) {
+                return array(
+                    'success' => true, 
+                    'message' => "{$count}개의 비정상 행동 탐지 기록이 모두 삭제되었습니다."
+                );
+            } else {
+                return array('success' => false, 'message' => '비정상 행동 탐지 기록 삭제에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 모든 봇 탐지 기록 삭제
+     */
+    public function deleteAllBotLogs() {
+        try {
+            // 먼저 존재하는 User-Agent 필터 기록 수 확인
+            $count_sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_SPAM_LOG_TABLE . 
+                        " WHERE sl_reason LIKE '%User-Agent%'";
+            $count_result = sql_query($count_sql);
+            $count = 0;
+            
+            if ($count_result && $count_row = sql_fetch_array($count_result)) {
+                $count = (int)$count_row['cnt'];
+            }
+            
+            if ($count == 0) {
+                return array('success' => false, 'message' => '삭제할 봇 탐지 기록이 없습니다.');
+            }
+            
+            // User-Agent 필터로 탐지된 기록만 삭제
+            $sql = "DELETE FROM " . GK_SECURITY_SPAM_LOG_TABLE . 
+                   " WHERE sl_reason LIKE '%User-Agent%'";
+            $result = sql_query($sql);
+            
+            if ($result) {
+                return array(
+                    'success' => true, 
+                    'message' => "{$count}개의 봇 탐지 기록이 모두 삭제되었습니다."
+                );
+            } else {
+                return array('success' => false, 'message' => '봇 탐지 기록 삭제에 실패했습니다.');
+            }
+        } catch (Exception $e) {
+            return array('success' => false, 'message' => '오류: ' . $e->getMessage());
+        }
+    }
 }

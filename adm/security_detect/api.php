@@ -158,6 +158,41 @@ try {
             echo json_encode($result);
             break;
 
+        case 'get_behavior_logs':
+            $page = (int)($_POST['page'] ?? 1);
+            $limit = (int)($_POST['limit'] ?? 10);
+            $result = $spamAdmin->getBehaviorLogs($page, $limit);
+            echo json_encode(['success' => true] + $result);
+            break;
+
+        case 'delete_behavior_log':
+            $log_id = $_POST['log_id'] ?? '';
+            $ip = $_POST['ip'] ?? '';
+            
+            if (empty($log_id) && empty($ip)) {
+                echo json_encode(['success' => false, 'message' => '로그 ID 또는 IP 주소가 필요합니다.']);
+                break;
+            }
+            
+            $result = $spamAdmin->deleteBehaviorLog($log_id, $ip);
+            echo json_encode($result);
+            break;
+
+        case 'delete_all_login_fail':
+            $result = $spamAdmin->deleteAllLoginFail();
+            echo json_encode($result);
+            break;
+
+        case 'delete_all_behavior_logs':
+            $result = $spamAdmin->deleteAllBehaviorLogs();
+            echo json_encode($result);
+            break;
+
+        case 'delete_all_bot_logs':
+            $result = $spamAdmin->deleteAllBotLogs();
+            echo json_encode($result);
+            break;
+
         default:
             echo json_encode(['success' => false, 'message' => '지원하지 않는 액션입니다.']);
             break;
