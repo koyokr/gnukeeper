@@ -41,13 +41,13 @@ sed 's/{PREFIX}/g5_/g' sql/install.sql | mysql -u [user] -p [database]
 ### 플러그인 로드
 extend 파일에서 자동으로 로드됩니다:
 ```php
-// extend/security_hook.extend.php에서
+// extend/gnukeeper.extend.php에서
 require_once GK_PLUGIN_PATH . '/bootstrap.php';
 ```
 
 ## 아키텍처
 
-- **extend/**: 단일 훅 파일만 (`security_hook.extend.php`)
+- **extend/**: 단일 훅 파일만 (`gnukeeper.extend.php`)
 - **plugin/gnukeeper/**: 모든 비즈니스 로직
 - **adm/**: 관리자 인터페이스
 

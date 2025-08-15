@@ -1,6 +1,6 @@
 <?php
 /**
- * GnuKeeper 보안 플러그인 - 메인 훅 파일
+ * GnuKeeper 보안 플러그인 - 통합 훅 파일
  *
  * 이 파일은 extend 디렉토리에 위치하여 모든 페이지에서 자동으로 로드됩니다.
  * 실제 로직은 plugin/gnukeeper에 있는 클래스들을 호출합니다.
@@ -28,7 +28,7 @@ if (!file_exists(GK_PLUGIN_PATH . '/bootstrap.php')) {
 require_once GK_PLUGIN_PATH . '/bootstrap.php';
 
 // 간단한 테스트 로그
-error_log("GnuKeeper security_hook.extend.php loaded at " . date('Y-m-d H:i:s'), 3, '/tmp/gk_test.log');
+error_log("GnuKeeper gnukeeper.extend.php loaded at " . date('Y-m-d H:i:s'), 3, '/tmp/gk_test.log');
 
 // 플러그인이 초기화되었는지 확인
 if (!gk_is_initialized()) {
@@ -108,7 +108,39 @@ if ($request_method === 'POST') {
 }
 
 // ========================================
-// 6. 이벤트 훅 등록
+// 6. 회원가입 접근제어 체크
+// ========================================
+// register_form_update.php에서 신규 회원가입만 선별적으로 차단
+if (basename($_SERVER['PHP_SELF']) === 'register_form_update.php') {
+    // $w 값 확인 (신규 회원가입: '', 회원정보 수정: 'u')
+    $w = '';
+    if (isset($_POST['w'])) {
+        $w = trim($_POST['w']);
+    } elseif (isset($_GET['w'])) {
+        $w = trim($_GET['w']);
+    }
+
+    // 신규 회원가입 시도인 경우만 차단 검사
+    if ($w === '') {
+        // 접근제어 테이블에서 회원가입 설정 확인
+        $access_sql = "SELECT ac_level FROM g5_access_control WHERE ac_page = 'bbs/register.php'";
+        $access_result = sql_query($access_sql, false);
+
+        if ($access_result && $access_row = sql_fetch_array($access_result)) {
+            $register_level = (int)$access_row['ac_level'];
+
+            // 회원가입이 차단된 상태라면 (ac_level = -1 또는 0)
+            if ($register_level <= 0) {
+                alert('회원가입이 일시적으로 중단되었습니다.', G5_URL);
+                exit;
+            }
+        }
+    }
+    // $w = 'u' (회원정보 수정)인 경우는 통과
+}
+
+// ========================================
+// 7. 이벤트 훅 등록
 // ========================================
 
 // 로그인 성공 체크 훅
@@ -162,7 +194,7 @@ if (gk_get_config('behavior_404_enabled') == '1') {
 }
 
 // ========================================
-// 7. 전역 함수 정의 (하위 호환성)
+// 8. 전역 함수 정의 (하위 호환성)
 // ========================================
 
 // 그누보드 기본 IP 차단 기능 비활성화
@@ -206,7 +238,7 @@ if (!function_exists('gk_set_config')) {
 }
 
 // ========================================
-// 8. 그누보드 기본 IP 차단 기능 비활성화 실행
+// 9. 그누보드 기본 IP 차단 기능 비활성화 실행
 // ========================================
 if (GK_Common::get_config('disable_gnuboard_ip_block') == '1') {
     gk_disable_gnuboard_ip_block();

@@ -33,8 +33,7 @@
 !/adm/security_detect/**
 
 # EXTEND
-!/extend/register_access_control.php
-!/extend/security_hook.extend.php
+!/extend/gnukeeper.extend.php
 
 # PLUGIN
 !/plugin/gnukeeper/**

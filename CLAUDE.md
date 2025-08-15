@@ -39,114 +39,98 @@ Concept: Enable general users to easily protect their sites, similar to WordPres
 - SQL injection prevention: Use gnuboard5's `sql_escape_string()` function
 - XSS prevention: Use `htmlspecialchars()`
 
-## Architecture (Current State)
+## Architecture
 
-### Hybrid Plugin Structure
-- **extend/**: Single hook file only (`security_hook.extend.php`)
-- **plugin/gnukeeper/**: All business logic and classes
-- **adm/**: Admin interface files (unchanged location)
+### Plugin Structure
+- **extend/**: `gnukeeper.extend.php` (single unified hook file)
+- **plugin/gnukeeper/**: Core business logic and classes
+- **adm/**: Admin interface files
 
-### File Structure
+### File Organization
 ```
-plugin/gnukeeper/
-├── bootstrap.php          # Plugin initialization
-├── config.php            # Path constants and table names
-├── core/                 # Core classes
-│   ├── GK_Common.php        # Common utilities
-│   ├── GK_BlockManager.php  # IP blocking logic
-│   └── GK_SpamDetector.php  # Spam detection engine
-├── filters/              # Filter modules
-│   ├── RegexFilter.php      # Regex spam filter
-│   ├── UserAgentFilter.php  # User-Agent filter
-│   ├── BehaviorFilter.php   # Behavior pattern detection
-│   └── MultiUserFilter.php  # Multi-account detection
-├── sql/                  # SQL scripts
-│   └── install.sql          # Unified installation script
-└── data/                 # Data files
-    └── korea_ip_list.txt    # Korean IP ranges
+├── adm/
+│   ├── admin.menu950.php       # Menu registration
+│   ├── security_home.php       # Dashboard (950100)
+│   ├── security_extension.php  # Policy management (950400)
+│   ├── access_control*.php     # Access control files
+│   ├── security_card_*.php     # Policy cards
+│   ├── security_block/         # Block management
+│   └── security_detect/        # Detection management
+└── plugin/gnukeeper/
+    ├── bootstrap.php, config.php
+    ├── core/      # GK_Common, GK_BlockManager, GK_SpamDetector
+    ├── filters/   # Regex, UserAgent, Behavior, MultiUser filters
+    ├── admin/     # Admin helper classes
+    ├── sql/       # Database scripts
+    └── data/      # Static data files
 ```
 
-## Key Features (Simplified Design)
+## Key Features
 
-### 1. IP Blocking
-- **Simple Rule**: Block = Complete access denial (no level variations)
-- Manual IP/CIDR block management
-- Exception IP (whitelist) management
-- Auto-block rules (login failures, spam, etc.)
-- Bulk foreign IP blocking
+### 1. Access Control & Blocking
+- IP/CIDR block management with whitelist exceptions
+- Auto-block on login failures, spam detection
+- Referer verification system
+- Foreign IP bulk blocking
 
-### 2. Spam Management
-- Login brute force blocking
-- Regex pattern matching
-- User-Agent filtering
-- Multi-account detection
-- Defaults: 5 max attempts, 5-minute window, 10-minute block
+### 2. Detection & Prevention
+- Login brute force protection (5 attempts, 10-min block)
+- Regex pattern spam filtering
+- User-Agent and behavior pattern detection
+- Multi-account monitoring
 
 ### 3. Admin Interface
-- 950100: Security dashboard
-- 950300: Block management
-- 950500: Spam management
+- 950100: Security dashboard (`security_home.php`)
+- 950400: Policy management (`security_extension.php`)
+- security_block/: Block management interface
+- security_detect/: Detection logs and settings
 
-## Database Structure (Simplified)
-- `g5_security_config`: Plugin configuration
-- `g5_security_ip_block`: Blocked IP list (no sb_block_level field)
-- `g5_security_ip_whitelist`: Exception IP list
-- `g5_security_login_fail`: Login failure log
-- `g5_security_regex_spam`: Spam detection rules
+## Database Tables
+- `g5_security_config`: Plugin settings
+- `g5_security_ip_block`: Blocked IPs
+- `g5_security_ip_whitelist`: Exception IPs
+- `g5_security_login_fail`: Login attempts
+- `g5_security_regex_spam`: Spam patterns
+- `g5_security_detect_log`: Detection logs
 
-## Development Workflow & Testing
+## Testing & Development
 
-### Critical Development Process
-1. **Code Development**: Implement features with proper error handling
-2. **Individual Testing**: Test each function with various inputs
-3. **Integration Testing**: Test plugin interaction with gnuboard5
-4. **Security Testing**: Test IP blocking, spam detection with real scenarios
-5. **Performance Testing**: Monitor extend file load impact
-6. **User Experience Testing**: Verify admin interface usability
-
-### Testing Commands
+### Test Commands
 ```bash
-# Test IP blocking (use 127.0.0.1 for IPv4 testing)
+# IP blocking test
 curl -s http://127.0.0.1/ -w "Status: %{http_code}\n"
 
-# Test User-Agent filtering
-curl -H "User-Agent: curl/7.68.0" http://127.0.0.1/
-
-# Test login failure blocking
+# Login failure test (triggers auto-block after 5 attempts)
 for i in {1..6}; do curl -d "mb_id=test&mb_password=wrong" -X POST http://127.0.0.1/bbs/login_check.php; done
 
-# Database cleanup after tests
+# Database cleanup
 mysql -u gnuuser -p'password' gnuboard -e "DELETE FROM g5_security_ip_block WHERE sb_ip = '127.0.0.1';"
 ```
 
-### Testing Accounts
-- Admin: id=admin, pw=adminpassword
-- Test user: id=hacker, pw=hackerpassword
-- Use separate cookie files for different test scenarios
+### Test Accounts
+- Admin: admin/adminpassword
+- Test: hacker/hackerpassword
 
-## Security Considerations
-- Validate and escape all input values
-- Check admin permissions (`$member['mb_level'] >= 10`)
-- Use only trustworthy IP sources
-- Graceful degradation on DB connection failure
-- Always test blocking functions before deployment
+## Critical Guidelines
 
-## Performance Guidelines
-- extend files load on EVERY page - keep minimal
-- Use static caching for database queries
-- Single hook file pattern: `/extend/security_hook.extend.php` only
-- Business logic in plugin classes, not extend files
-- Test performance impact after any extend file changes
+### Security
+- Never trust HTTP headers for IP (`$_SERVER['REMOTE_ADDR']` only)
+- Validate all inputs with `sql_escape_string()`, `htmlspecialchars()`
+- Admin permission check: `$member['mb_level'] >= 10`
+- Graceful DB failure handling
 
-## UI/UX Guidelines (Customer-Focused)
-- **Simplicity First**: General users should understand all options intuitively
-- **No Complex Configurations**: Avoid technical jargon and multiple sub-options
-- **Clear Feedback**: Show immediate results of actions
-- **AJAX-Only Interactions**: No page refreshes for user actions
+### Performance
+- Extend files: Minimal code (loads on EVERY page)
+- Static caching for DB queries
+- Business logic in plugin classes only
+- Single hook file: `/extend/gnukeeper.extend.php`
 
-## Important Notes
-- **Testing is Critical**: Every feature must be tested with real scenarios before deployment
-- Function existence check prevents redeclaration errors
-- Never trust HTTP headers for IP detection in security contexts
-- Plugin structure optimizes performance while maintaining functionality
-- Simplified blocking logic (no levels) improves user experience
+### UI/UX
+- Simple, intuitive interface for general users
+- AJAX-only interactions (no page refresh)
+- Clear, immediate feedback
+
+### Important Notes
+- Test all features with real scenarios
+- Use `!function_exists()` to prevent redeclaration
+- Keep blocking logic simple (no complexity levels)
