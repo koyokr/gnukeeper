@@ -50,6 +50,9 @@ define('GK_SECURITY_SPAM_LOG_TABLE', G5_TABLE_PREFIX . 'security_spam_log');
 // 플러그인 버전
 define('GK_VERSION', '1.0.0');
 
+// GitHub 레포지토리 정보 (버전 체크용)
+define('GK_GITHUB_REPO', 'gnsehfvlr/gnuboard5_security');
+
 // 플러그인 활성화 상태 (기본값)
 if (!defined('GK_ENABLED')) {
     define('GK_ENABLED', true);

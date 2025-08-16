@@ -8,7 +8,7 @@
 
 if (!defined('_GNUBOARD_')) exit;
 
-// 플러그인 설정 파일 로드
+// 플러그인 설정 파일 로드 (버전 정의도 여기서 됨)
 require_once __DIR__ . '/config.php';
 
 /**

@@ -29,11 +29,17 @@
 !/adm/security_card_extension.php
 !/adm/security_card_upload.php
 
-# 스팸관리
+# 탐지관리
 !/adm/security_detect/**
+
+# 패치관리
+!/adm/security_patch.php
 
 # EXTEND
 !/extend/gnukeeper.extend.php
 
 # PLUGIN
 !/plugin/gnukeeper/**
+
+# GitHub Actions
+!/.github/workflows/release.yml

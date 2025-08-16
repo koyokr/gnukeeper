@@ -6,4 +6,5 @@ $menu['menu950'] = array(
     array('950300', '차단관리', G5_ADMIN_URL . '/security_block/index.php',   'security_block'),
     array('950400', '정책관리', G5_ADMIN_URL . '/security_extension.php',   'security_extension'),
     array('950500', '탐지관리', G5_ADMIN_URL . '/security_detect/index.php',   'security_detect'),
+    array('950600', '패치관리', G5_ADMIN_URL . '/security_patch.php',   'security_patch'),
 );
