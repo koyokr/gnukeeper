@@ -29,8 +29,8 @@ function get_github_latest_version($repo) {
     if ($http_code == 200 && $response) {
         $data = json_decode($response, true);
         if (isset($data['tag_name'])) {
-            // v1.0.0 -> 1.0.0
-            return ltrim($data['tag_name'], 'v');
+            // 1.0.0 형식의 태그 그대로 반환
+            return $data['tag_name'];
         }
     }
     

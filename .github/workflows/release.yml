@@ -3,7 +3,7 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '*.*.*'
 
 jobs:
   create-release:
@@ -15,7 +15,7 @@ jobs:
       
       - name: Get version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       
       - name: Verify version match
         run: |
@@ -44,7 +44,7 @@ jobs:
           
           # Create ZIP file
           cd gnukeeper-release
-          zip -r ../gnukeeper-v${{ steps.get_version.outputs.VERSION }}.zip . \
+          zip -r ../gnukeeper-${{ steps.get_version.outputs.VERSION }}.zip . \
             -x "*.git*" \
             -x "*CLAUDE.md" \
             -x "*CLAUDE.local.md" \
@@ -78,9 +78,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: GnuKeeper v${{ steps.get_version.outputs.VERSION }}
+          release_name: GnuKeeper ${{ steps.get_version.outputs.VERSION }}
           body: |
-            # GnuKeeper v${{ steps.get_version.outputs.VERSION }}
+            # GnuKeeper ${{ steps.get_version.outputs.VERSION }}
             
             Gnuboard5 보안 플러그인
             
@@ -99,6 +99,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./gnukeeper-v${{ steps.get_version.outputs.VERSION }}.zip
-          asset_name: gnukeeper-v${{ steps.get_version.outputs.VERSION }}.zip
+          asset_path: ./gnukeeper-${{ steps.get_version.outputs.VERSION }}.zip
+          asset_name: gnukeeper-${{ steps.get_version.outputs.VERSION }}.zip
           asset_content_type: application/zip
