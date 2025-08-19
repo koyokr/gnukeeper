@@ -33,9 +33,6 @@
 # 탐지관리
 !/adm/security_detect/**
 
-# 패치관리
-!/adm/security_patch.php
-
 # EXTEND
 !/extend/gnukeeper.extend.php
 

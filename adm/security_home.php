@@ -39,23 +39,36 @@ function get_security_stats() {
     return $stats;
 }
 
+// 버전 비교 함수 (JavaScript에서도 사용)
+function compare_versions($current, $latest) {
+    if (!$latest) return 'unknown';
+    
+    $result = version_compare($current, $latest);
+    if ($result < 0) return 'outdated';
+    if ($result > 0) return 'newer';
+    return 'latest';
+}
+
 // 시스템 정보 조회
 function get_system_info() {
-    global $g5;
-
     $info = array();
+    
+    // 현재 버전 정보 (JavaScript가 사용할 수 있도록)
+    $gk_current_version = defined('GK_VERSION') ? GK_VERSION : '0.0.0';
+    $g5_current_version = defined('G5_GNUBOARD_VER') ? G5_GNUBOARD_VER : '0.0.0';
+    $github_repo = defined('GK_GITHUB_REPO') ? GK_GITHUB_REPO : 'gnsehfvlr/gnuboard5_security';
+
     $info['plugin_status'] = '정상 작동중';
-    $info['plugin_last_update'] = '2025년 08월 14일';
-    $info['plugin_version'] = 'v1.0.0';
-    $info['gnuboard_last_update'] = '2025년 06월 10일';
-    $info['gnuboard_version'] = 'v15.2.0';
+    $info['plugin_version'] = $gk_current_version;
+    $info['gnuboard_version'] = $g5_current_version;
+    $info['github_repo'] = $github_repo;
 
     return $info;
 }
 
 // 종합 보안 점수 계산
 function calculate_security_score() {
-    global $g5, $debug_info;
+    global $debug_info;
 
     $score = 0;
     $max_score = 100;
@@ -72,7 +85,7 @@ function calculate_security_score() {
     // 2. 필수 파일 존재 (20점)
     $missing_files = 0;
     if (isset($debug_info['files'])) {
-        foreach ($debug_info['files'] as $file => $status) {
+        foreach ($debug_info['files'] as $status) {
             if ($status == 'MISSING') {
                 $missing_files++;
             }
@@ -437,6 +450,108 @@ $security_score = calculate_security_score();
     border-radius: 4px;
     transition: width 2s ease-in-out;
 }
+
+/* 버전 정보 카드 스타일 */
+.version-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 15px;
+}
+
+.version-card h4 {
+    font-size: 16px;
+    margin: 0 0 15px 0;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.version-icon {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.version-info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f9fafb;
+    border-radius: 6px;
+}
+
+.version-label {
+    font-weight: 500;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.version-value {
+    font-weight: 600;
+    color: #111827;
+    font-size: 14px;
+}
+
+.version-status {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.status-latest {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-outdated {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-unknown {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.status-newer {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.update-button {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+}
+
+.update-button:hover {
+    opacity: 0.9;
+}
 </style>
 
 <div class="security-dashboard">
@@ -536,33 +651,49 @@ $security_score = calculate_security_score();
             ⚙️ 시스템 상태
         </div>
         <div class="section-content">
-            <div class="system-info-grid">
-                <div>
-                    <div class="info-item">
-                        <span class="info-label">시스템 상태</span>
-                        <span class="info-value status-normal">정상</span>
+            <!-- 버전 관리 카드들 -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 20px;">
+                <!-- GnuKeeper 버전 카드 -->
+                <div class="version-card">
+                    <h4>
+                        <div class="version-icon">GK</div>
+                        그누키퍼
+                    </h4>
+                    
+                    <div class="version-info-row">
+                        <span class="version-label">현재 버전</span>
+                        <span class="version-value"><?php echo $system_info['plugin_version']; ?></span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">플러그인 상태</span>
-                        <span class="info-value status-normal"><?php echo $system_info['plugin_status']; ?></span>
+                    
+                    <div class="version-info-row">
+                        <span class="version-label">최신 버전</span>
+                        <span class="version-value" id="gk-latest-version">확인 중...</span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">플러그인 마지막 업데이트</span>
-                        <span class="info-value"><?php echo $system_info['plugin_last_update']; ?></span>
+                    
+                    <div class="version-status status-unknown" id="gk-version-status">
+                        버전 정보를 확인하는 중...
                     </div>
                 </div>
-                <div>
-                    <div class="info-item">
-                        <span class="info-label">플러그인 버전</span>
-                        <span class="info-value"><?php echo $system_info['plugin_version']; ?></span>
+
+                <!-- Gnuboard5 버전 카드 -->
+                <div class="version-card">
+                    <h4>
+                        <div class="version-icon">G5</div>
+                        그누보드5
+                    </h4>
+                    
+                    <div class="version-info-row">
+                        <span class="version-label">현재 버전</span>
+                        <span class="version-value"><?php echo $system_info['gnuboard_version']; ?></span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">그누보드 마지막 업데이트</span>
-                        <span class="info-value"><?php echo $system_info['gnuboard_last_update']; ?></span>
+                    
+                    <div class="version-info-row">
+                        <span class="version-label">최신 버전</span>
+                        <span class="version-value" id="g5-latest-version">확인 중...</span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">그누보드 버전</span>
-                        <span class="info-value"><?php echo $system_info['gnuboard_version']; ?></span>
+                    
+                    <div class="version-status status-unknown" id="g5-version-status">
+                        버전 정보를 확인하는 중...
                     </div>
                 </div>
             </div>
@@ -695,6 +826,121 @@ function toggleConsoleDebug() {
     }
 }
 
+// JavaScript 버전 비교 함수
+function compareVersions(current, latest) {
+    if (!latest) return 'unknown';
+    
+    // 버전 문자열을 숫자 배열로 변환
+    const currentParts = current.split('.').map(Number);
+    const latestParts = latest.split('.').map(Number);
+    
+    const maxLength = Math.max(currentParts.length, latestParts.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+        const currentPart = currentParts[i] || 0;
+        const latestPart = latestParts[i] || 0;
+        
+        if (currentPart < latestPart) return 'outdated';
+        if (currentPart > latestPart) return 'newer';
+    }
+    
+    return 'latest';
+}
+
+// GitHub API에서 최신 버전 정보 가져오기 (클라이언트 사이드)
+async function fetchLatestVersions() {
+    const systemInfo = <?php echo json_encode($system_info); ?>;
+    let gkStatus = 'unknown';
+    let g5Status = 'unknown';
+    
+    try {
+        // GnuKeeper 플러그인 버전 확인
+        const gkResponse = await fetch(`https://api.github.com/repos/${systemInfo.github_repo}/releases/latest`);
+        if (gkResponse.ok) {
+            const gkData = await gkResponse.json();
+            const gkLatestVersion = gkData.tag_name || null;
+            
+            document.getElementById('gk-latest-version').textContent = gkLatestVersion || '확인 불가';
+            
+            gkStatus = compareVersions(systemInfo.plugin_version, gkLatestVersion);
+            updateVersionStatus('gk', gkStatus, systemInfo.github_repo);
+        } else {
+            document.getElementById('gk-latest-version').textContent = '확인 불가';
+            updateVersionStatus('gk', 'unknown');
+        }
+        
+        // Gnuboard5 버전 확인
+        const g5Response = await fetch('https://api.github.com/repos/gnuboard/gnuboard5/releases/latest');
+        if (g5Response.ok) {
+            const g5Data = await g5Response.json();
+            const g5LatestVersion = g5Data.tag_name ? g5Data.tag_name.replace(/^v/, '') : null;
+            
+            document.getElementById('g5-latest-version').textContent = g5LatestVersion || '확인 불가';
+            
+            g5Status = compareVersions(systemInfo.gnuboard_version, g5LatestVersion);
+            updateVersionStatus('g5', g5Status);
+        } else {
+            document.getElementById('g5-latest-version').textContent = '확인 불가';
+            updateVersionStatus('g5', 'unknown');
+        }
+        
+    } catch (error) {
+        console.error('Version check failed:', error);
+        document.getElementById('gk-latest-version').textContent = '확인 실패';
+        document.getElementById('g5-latest-version').textContent = '확인 실패';
+        updateVersionStatus('gk', 'unknown');
+        updateVersionStatus('g5', 'unknown');
+    }
+}
+
+// 버전 상태 UI 업데이트
+function updateVersionStatus(type, status, githubRepo = null) {
+    const statusElement = document.getElementById(`${type}-version-status`);
+    
+    // 기존 업데이트 버튼 제거
+    const existingButton = statusElement.parentNode.querySelector('.update-button');
+    if (existingButton) {
+        existingButton.remove();
+    }
+    
+    statusElement.className = 'version-status';
+    
+    switch (status) {
+        case 'latest':
+            statusElement.classList.add('status-latest');
+            statusElement.textContent = '✓ 최신 버전을 사용중입니다';
+            break;
+        case 'outdated':
+            statusElement.classList.add('status-outdated');
+            statusElement.textContent = '⚠ 새로운 버전이 있습니다';
+            
+            // 업데이트 버튼 추가
+            const updateButton = document.createElement('a');
+            updateButton.className = 'update-button';
+            updateButton.target = '_blank';
+            
+            if (type === 'gk' && githubRepo) {
+                updateButton.href = `https://github.com/${githubRepo}/releases/latest`;
+                updateButton.textContent = '업데이트 다운로드';
+            } else if (type === 'g5') {
+                updateButton.href = 'https://sir.kr/g5_pds';
+                updateButton.textContent = '업데이트 페이지로 이동';
+            }
+            
+            statusElement.parentNode.appendChild(updateButton);
+            break;
+        case 'newer':
+            statusElement.classList.add('status-newer');
+            statusElement.textContent = 'ℹ 개발 버전을 사용중입니다';
+            break;
+        default:
+            statusElement.classList.add('status-unknown');
+            statusElement.textContent = '버전 정보를 확인할 수 없습니다';
+            break;
+    }
+}
+
+
 // 페이지 로드 시 디버깅 정보 출력
 document.addEventListener('DOMContentLoaded', function() {
     // 이전 설정 불러오기
@@ -710,12 +956,17 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('%c보안 플러그인 개발자 모드', 'background: #007bff; color: white; padding: 5px 10px; border-radius: 3px');
         console.log('• logSecurityDebugInfo() - 시스템 상태 확인');
         console.log('• toggleConsoleDebug() - 콘솔 디버깅 토글');
+        console.log('• fetchLatestVersions() - 최신 버전 확인');
     }
+    
+    // 클라이언트 사이드 버전 확인 실행
+    fetchLatestVersions();
 });
 
 // 전역 함수로 등록 (개발자가 콘솔에서 직접 호출 가능)
 window.logSecurityDebugInfo = logSecurityDebugInfo;
 window.toggleConsoleDebug = toggleConsoleDebug;
+window.fetchLatestVersions = fetchLatestVersions;
 </script>
 
 <?php
