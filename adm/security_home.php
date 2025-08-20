@@ -16,25 +16,35 @@ function get_security_stats() {
 
     $stats = array();
 
-    // 차단된 스팸 시도 (예: 차단된 회원 수)
-    $sql = "SELECT COUNT(*) as cnt FROM {$g5['member_table']} WHERE mb_intercept_date != ''";
+    // 차단된 스팸 시도 (스팸 정규식 로그)
+    $sql = "SELECT COUNT(*) as cnt FROM g5_security_regex_spam_log";
     $result = sql_fetch($sql);
     $stats['blocked_spam'] = $result['cnt'];
 
-    // 차단된 공격 시도 (예: 실패한 로그인 시도 - 가상 데이터)
-    $stats['blocked_attacks'] = 47; // 실제 구현시 로그 테이블에서 조회
+    // 차단된 공격 시도 (IP 차단 로그 + 로그인 실패)
+    $sql = "SELECT COUNT(*) as cnt FROM g5_security_ip_log";
+    $result = sql_fetch($sql);
+    $login_fail_sql = "SELECT COUNT(*) as cnt FROM g5_security_login_fail";
+    $login_fail_result = sql_fetch($login_fail_sql);
+    $stats['blocked_attacks'] = $result['cnt'] + $login_fail_result['cnt'];
 
-    // 블랙리스트 IP (가상 데이터)
-    $stats['blacklist_ips'] = 23; // 실제 구현시 IP 차단 테이블에서 조회
+    // 블랙리스트 IP (실제 차단된 IP 수)
+    $sql = "SELECT COUNT(*) as cnt FROM g5_security_ip_block";
+    $result = sql_fetch($sql);
+    $stats['blacklist_ips'] = $result['cnt'];
 
     // 오늘 차단된 스팸
     $today = date('Y-m-d');
-    $sql = "SELECT COUNT(*) as cnt FROM {$g5['member_table']} WHERE mb_intercept_date LIKE '{$today}%'";
+    $sql = "SELECT COUNT(*) as cnt FROM g5_security_regex_spam_log WHERE DATE(srsl_datetime) = '{$today}'";
     $result = sql_fetch($sql);
     $stats['today_blocked_spam'] = $result['cnt'];
 
-    // 오늘 차단된 공격시도 (가상 데이터)
-    $stats['today_blocked_attacks'] = 12; // 실제 구현시 로그 테이블에서 조회
+    // 오늘 차단된 공격시도
+    $sql = "SELECT COUNT(*) as cnt FROM g5_security_ip_log WHERE DATE(sl_datetime) = '{$today}'";
+    $result = sql_fetch($sql);
+    $login_today_sql = "SELECT COUNT(*) as cnt FROM g5_security_login_fail WHERE DATE(slf_datetime) = '{$today}'";
+    $login_today_result = sql_fetch($login_today_sql);
+    $stats['today_blocked_attacks'] = $result['cnt'] + $login_today_result['cnt'];
 
     return $stats;
 }
@@ -175,42 +185,62 @@ function get_security_grade($score, $max_score) {
     return array('grade' => 'F', 'text' => '위험', 'color' => '#dc3545');
 }
 
-// 최근 로그 조회 (가상 데이터)
+// 최근 로그 조회 (실제 데이터)
 function get_recent_logs() {
-    $logs = array(
-        array(
-            'time' => '2025.08.15 14:24:10',
-            'ip' => '192.168.1.100',
-            'action' => '스팸 댓글 시도',
-            'status' => '차단됨'
-        ),
-        array(
-            'time' => '2025.08.15 13:15:33',
-            'ip' => '8.8.4.4',
-            'action' => '무차별 로그인 시도',
-            'status' => '차단됨'
-        ),
-        array(
-            'time' => '2025.08.15 12:45:22',
-            'ip' => '203.123.45.67',
-            'action' => 'SQL 인젝션 시도',
-            'status' => '차단됨'
-        ),
-        array(
-            'time' => '2025.08.15 11:30:15',
-            'ip' => '172.16.0.50',
-            'action' => '스팸 게시글 작성',
-            'status' => '차단됨'
-        ),
-        array(
-            'time' => '2025.08.15 10:22:44',
-            'ip' => '10.0.0.100',
-            'action' => '파일 업로드 공격',
-            'status' => '차단됨'
-        )
-    );
+    $logs = array();
 
-    return $logs;
+    // IP 차단 로그
+    $sql = "SELECT sl_ip, sl_datetime, sl_block_reason, sl_url 
+            FROM g5_security_ip_log 
+            ORDER BY sl_datetime DESC 
+            LIMIT 3";
+    $result = sql_query($sql);
+    while ($row = sql_fetch_array($result)) {
+        $logs[] = array(
+            'time' => date('Y.m.d H:i:s', strtotime($row['sl_datetime'])),
+            'ip' => $row['sl_ip'],
+            'action' => $row['sl_block_reason'] ?: 'IP 차단',
+            'status' => '차단됨'
+        );
+    }
+
+    // 로그인 실패 로그
+    $sql = "SELECT slf_ip, slf_datetime, slf_mb_id 
+            FROM g5_security_login_fail 
+            ORDER BY slf_datetime DESC 
+            LIMIT 2";
+    $result = sql_query($sql);
+    while ($row = sql_fetch_array($result)) {
+        $logs[] = array(
+            'time' => date('Y.m.d H:i:s', strtotime($row['slf_datetime'])),
+            'ip' => $row['slf_ip'],
+            'action' => '로그인 실패 (ID: ' . htmlspecialchars($row['slf_mb_id']) . ')',
+            'status' => '차단됨'
+        );
+    }
+
+    // 스팸 정규식 로그
+    $sql = "SELECT srsl_ip, srsl_datetime, srsl_matched_pattern 
+            FROM g5_security_regex_spam_log 
+            ORDER BY srsl_datetime DESC 
+            LIMIT 2";
+    $result = sql_query($sql);
+    while ($row = sql_fetch_array($result)) {
+        $logs[] = array(
+            'time' => date('Y.m.d H:i:s', strtotime($row['srsl_datetime'])),
+            'ip' => $row['srsl_ip'],
+            'action' => '스팸 패턴 감지: ' . htmlspecialchars(substr($row['srsl_matched_pattern'], 0, 20)) . '...',
+            'status' => '차단됨'
+        );
+    }
+
+    // 시간 순으로 정렬
+    usort($logs, function($a, $b) {
+        return strtotime($b['time']) - strtotime($a['time']);
+    });
+
+    // 최대 5개까지만 반환
+    return array_slice($logs, 0, 5);
 }
 
 $security_stats = get_security_stats();
