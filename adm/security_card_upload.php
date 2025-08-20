@@ -22,8 +22,8 @@ $global_config_result = sql_fetch($global_config_sql);
 $global_upload_size = isset($global_config_result['cf_upload_size']) ? $global_config_result['cf_upload_size'] : 0;
 $global_is_high_risk = $global_upload_size >= $upload_risk_threshold;
 
-// 모든 게시판 업로드 크기 조회
-$upload_boards_sql = "SELECT bo_table, bo_subject, bo_upload_size FROM {$g5['board_table']} WHERE bo_use_file_upload = 1 ORDER BY bo_table";
+// 모든 게시판 업로드 크기 조회 (업로드 크기가 0보다 큰 게시판들)
+$upload_boards_sql = "SELECT bo_table, bo_subject, bo_upload_size FROM {$g5['board_table']} WHERE bo_upload_size > 0 ORDER BY bo_table";
 $upload_boards_result = sql_query($upload_boards_sql);
 
 $upload_boards = array();
