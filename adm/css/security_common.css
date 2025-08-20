@@ -2925,5 +2925,505 @@ table td, table th {
 
 
 /* ==========================================================================
+   SPAM CONTENT COMPONENTS - 스팸 콘텐츠 관련 컴포넌트
+   ========================================================================== */
+
+/* 키워드 관리 폼 */
+.keyword-management {
+    margin-top: 16px;
+}
+
+.keyword-add-section {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.keyword-add-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.keyword-form {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.keyword-form select,
+.keyword-form input {
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    height: 42px;
+    box-sizing: border-box;
+}
+
+.keyword-form select:focus,
+.keyword-form input:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* 키워드 목록 */
+.keywords-list {
+    max-height: 600px;
+    overflow-y: auto;
+    background: white;
+}
+
+/* 카테고리 관련 스타일 제거됨 - 이제 플랫 구조 사용 */
+
+.keyword-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    transition: background-color 0.15s ease;
+}
+
+.keyword-item:hover {
+    background: #f9fafb;
+}
+
+.keyword-text {
+    font-weight: 500;
+    color: #1f2937;
+    flex: 1;
+    font-size: 14px;
+}
+
+.keyword-score {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.keyword-score.score-1 {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.keyword-score.score-2 {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.keyword-score.score-3 {
+    background: #fed7aa;
+    color: #ea580c;
+}
+
+.keyword-score.score-4 {
+    background: #fecaca;
+    color: #dc2626;
+}
+
+.keyword-score.score-5 {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.keyword-hits {
+    font-size: 12px;
+    color: #6b7280;
+    margin-right: 12px;
+    min-width: 40px;
+    text-align: right;
+}
+
+.btn-keyword-edit,
+.btn-keyword-delete {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    margin-left: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-keyword-edit {
+    background: #e0e7ff;
+    color: #4f46e5;
+}
+
+.btn-keyword-edit:hover {
+    background: #c7d2fe;
+}
+
+.btn-keyword-delete {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-keyword-delete:hover {
+    background: #fecaca;
+}
+
+/* 스팸 탐지 점수 배지 */
+.score-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.score-badge.normal {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.score-badge.warning {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.score-badge.danger {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+/* 키워드 리스트 */
+.keyword-list {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.keyword-count {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+/* 콘텐츠 샘플 */
+.content-sample {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #4b5563;
+    line-height: 1.4;
+}
+
+/* 탐지된 IP 행 스타일 */
+.blocked-ip {
+    background-color: #fef7f7;
+    border-left: 3px solid #dc2626;
+}
+
+.blocked-ip:hover {
+    background-color: #fef2f2;
+}
+
+/* 탐지 횟수 배지 */
+.detection-count {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.detection-count.normal {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.detection-count.warning {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.detection-count.danger {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+/* 행동 탐지 사유 */
+.behavior-reason {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+/* 로그 시간 */
+.log-time {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.log-user {
+    font-size: 13px;
+    color: #4b5563;
+    font-weight: 500;
+}
+
+/* User-Agent 표시 */
+.user-agent {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: #6b7280;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* 요청 URL */
+.request-url {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: #6b7280;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* 상태 배지들 */
+.action-status.blocked {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.action-status.detected {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.action-status.pending {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.action-status.detected {
+    background-color: #f0f9ff;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+}
+
+/* 로딩 스피너 */
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+    .keyword-form {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .keyword-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .keyword-item > div {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .ip-table {
+        font-size: 11px;
+    }
+    
+    .ip-table th,
+    .ip-table td {
+        padding: 6px 8px;
+    }
+}
+
+/* ==========================================================================
+   스팸 키워드 관리 테이블 헤더 스타일
+   ========================================================================== */
+
+.keywords-table-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    color: #1565c0;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 0px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+    border: 1px solid #90caf9;
+}
+
+.keywords-table-header .header-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.keywords-table-header .category-col {
+    flex: 0 0 180px;
+    justify-content: center;
+    padding-left: 0;
+}
+
+.keywords-table-header .keyword-col {
+    flex: 1 1 150px;
+    justify-content: center;
+}
+
+.keywords-table-header .score-col,
+.keywords-table-header .hits-col {
+    flex: 0 0 120px;
+    justify-content: center;
+}
+
+.keywords-table-header .actions-col {
+    flex: 0 0 120px;
+    justify-content: center;
+}
+
+.keyword-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #e2e8f0;
+    border-left: 1px solid #90caf9;
+    border-right: 1px solid #90caf9;
+    transition: background-color 0.2s;
+    background: white;
+}
+
+.keyword-item:last-child {
+    border-bottom: 1px solid #90caf9;
+    border-radius: 0 0 8px 8px;
+}
+
+.keyword-item:hover {
+    background-color: #f8fafc;
+}
+
+.keyword-item > * {
+    display: flex;
+    align-items: center;
+}
+
+.keyword-item .keyword-category {
+    flex: 0 0 180px;
+    font-size: 12px;
+    color: #6b7280;
+    background: #f1f5f9;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    white-space: nowrap;
+    margin-left: 15px;
+    box-sizing: border-box;
+    justify-content: center;
+    text-align: center;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.keyword-item .keyword-text {
+    flex: 1 1 150px;
+    font-weight: 500;
+    color: #1f2937;
+    justify-content: center;
+    text-align: center;
+    padding-left: 0;
+    margin-left: 0;
+}
+
+.keyword-item .keyword-score,
+.keyword-item .keyword-hits {
+    flex: 0 0 120px;
+    justify-content: center;
+    text-align: center;
+    padding-left: 0;
+    margin-left: 0;
+}
+
+.keyword-item .keyword-actions {
+    flex: 0 0 120px;
+    gap: 6px;
+    justify-content: center;
+}
+
+.keyword-actions .btn-keyword-edit,
+.keyword-actions .btn-keyword-delete {
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.keyword-actions .btn-keyword-edit {
+    background: #3182ce;
+    color: white;
+}
+
+.keyword-actions .btn-keyword-edit:hover {
+    background: #2c5282;
+}
+
+.keyword-actions .btn-keyword-delete {
+    background: #e53e3e;
+    color: white;
+}
+
+.keyword-actions .btn-keyword-delete:hover {
+    background: #c53030;
+}
+
+/* 게시판 정보 스타일 */
+.board-info {
+    text-align: center;
+}
+
+.board-name {
+    font-weight: 500;
+    color: #2d3748;
+    margin-bottom: 2px;
+}
+
+.board-link a {
+    color: #3182ce;
+    text-decoration: none;
+    font-size: 11px;
+}
+
+.board-link a:hover {
+    text-decoration: underline;
+}
+
+/* ==========================================================================
    FINAL CLEANUP - 최종 정리
    ========================================================================== */

@@ -36,7 +36,8 @@ class GK_SpamAdmin {
             'behavior_referer_enabled' => GK_Common::get_config('behavior_referer_enabled') ?? '0',
             'multiuser_register_enabled' => GK_Common::get_config('multiuser_register_enabled') ?? '0',
             'multiuser_login_enabled' => GK_Common::get_config('multiuser_login_enabled') ?? '0',
-            'regex_spam_enabled' => GK_Common::get_config('regex_spam_enabled') ?? '0'
+            'regex_spam_enabled' => GK_Common::get_config('regex_spam_enabled') ?? '0',
+            'spam_content_enabled' => GK_Common::get_config('spam_content_enabled') ?? '0'
         );
 
         // 24시간 로그인 실패 횟수
@@ -55,20 +56,31 @@ class GK_SpamAdmin {
             $stats['blocked_ip_count'] = $row['cnt'];
         }
 
-        // 24시간 스팸 탐지 횟수
+        // 24시간 스팸 탐지 횟수 (스팸 로그 + 스팸 콘텐츠 로그)
         $spam_log_sql = "SELECT COUNT(*) as cnt FROM " . GK_SECURITY_SPAM_LOG_TABLE . "
                         WHERE sl_datetime >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
         $result = sql_query($spam_log_sql, false);
+        $spam_count = 0;
         if ($result && $row = sql_fetch_array($result)) {
-            $stats['spam_detected_count'] = $row['cnt'];
+            $spam_count = (int)$row['cnt'];
         }
+
+        // 스팸 콘텐츠 탐지 횟수도 포함
+        $spam_content_sql = "SELECT COUNT(*) as cnt FROM {$g5['g5_table_prefix']}security_spam_content_log
+                            WHERE sscl_datetime >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
+        $result = sql_query($spam_content_sql, false);
+        if ($result && $row = sql_fetch_array($result)) {
+            $spam_count += (int)$row['cnt'];
+        }
+        
+        $stats['spam_detected_count'] = $spam_count;
 
         // 활성화된 기능 수 계산
         $active_count = 0;
         $features = [
             'login_block_enabled', 'useragent_block_enabled', 'behavior_404_enabled',
             'behavior_referer_enabled', 'multiuser_register_enabled', 'multiuser_login_enabled',
-            'regex_spam_enabled'
+            'regex_spam_enabled', 'spam_content_enabled'
         ];
 
         foreach ($features as $feature) {

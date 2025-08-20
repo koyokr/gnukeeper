@@ -171,16 +171,24 @@ function gk_register_check_handler($mb_id, $mb) {
 }
 
 // 게시글 작성 체크 훅
-add_event('write_update_before', 'gk_write_check_handler', 10, 5);
-function gk_write_check_handler($board, $wr_id, $w, $qstr, $redirect_url) {
-    return GK_SpamDetector::checkContent($board, $wr_id);
+add_event('write_update_before', 'gk_write_check_handler', 10, 4);
+function gk_write_check_handler($board, $wr_id, $w, $qstr) {
+    // 스팸 콘텐츠 탐지는 항상 작동 (OFF는 자동차단만 비활성화)
+    $config = GK_Common::get_config();
+    
+    // 디버그: 설정 상태 로그
+    error_log("SpamContent Debug: auto_block_enabled=" . ($config['spam_content_enabled'] ?? 'not_set'), 3, '/tmp/spam_debug.log');
+    
+    // 스팸 탐지는 항상 실행 (자동차단 여부만 설정에 따라 결정)
+    $spamResult = gk_check_spam_content_write($board, $wr_id, $w);
+    if (!$spamResult) return false;
+    
+    return true;
 }
 
-// 댓글 작성 체크 훅
-add_event('comment_update_before', 'gk_comment_check_handler', 10, 5);
-function gk_comment_check_handler($board, $wr_id, $w, $qstr, $redirect_url) {
-    return GK_SpamDetector::checkContent($board, $wr_id);
-}
+// 댓글 작성 체크는 실제 그누보드에서 지원하지 않음
+// 대신 write_comment_update.php 파일을 직접 수정하거나
+// 다른 방법을 사용해야 함 (현재는 비활성화)
 
 // 404 에러 처리 훅 (필요시 활성화)
 if (gk_get_config('behavior_404_enabled') == '1') {
@@ -234,6 +242,76 @@ if (!function_exists('gk_parse_cidr')) {
 if (!function_exists('gk_set_config')) {
     function gk_set_config($key, $value) {
         return GK_Common::set_config($key, $value);
+    }
+}
+
+// 스팸 콘텐츠 체크 함수들
+if (!function_exists('gk_check_spam_content_write')) {
+    function gk_check_spam_content_write($board, $wr_id, $w) {
+        // 스팸 콘텐츠 필터 로드
+        require_once GK_PLUGIN_PATH . '/filters/SpamContentFilter.php';
+        $filter = new GK_SpamContentFilter();
+        
+        // POST 데이터에서 제목과 내용 가져오기
+        $title = isset($_POST['wr_subject']) ? $_POST['wr_subject'] : '';
+        $content = isset($_POST['wr_content']) ? $_POST['wr_content'] : '';
+        
+        if (empty($title) && empty($content)) {
+            return true; // 내용이 없으면 통과
+        }
+        
+        $options = [
+            'bo_table' => $board['bo_table'],
+            'wr_id' => $wr_id,
+            'type' => 'write'
+        ];
+        
+        $result = $filter->detectSpam($content, $title, $options);
+        
+        if ($result && $result['spam']) {
+            // 간소한 스팸 탐지 메시지
+            $message = '스팸으로 의심되는 게시물이 작성되었습니다.\\n\\n관리자 확인 후 처리됩니다.';
+            
+            // JavaScript 알림창 표시
+            echo "<script>alert('" . $message . "'); history.back();</script>";
+            exit;
+        }
+        
+        return true;
+    }
+}
+
+if (!function_exists('gk_check_spam_content_comment')) {
+    function gk_check_spam_content_comment($board, $wr_id, $w) {
+        // 스팸 콘텐츠 필터 로드
+        require_once GK_PLUGIN_PATH . '/filters/SpamContentFilter.php';
+        $filter = new GK_SpamContentFilter();
+        
+        // POST 데이터에서 댓글 내용 가져오기
+        $content = isset($_POST['wr_content']) ? $_POST['wr_content'] : '';
+        
+        if (empty($content)) {
+            return true; // 내용이 없으면 통과
+        }
+        
+        $options = [
+            'bo_table' => $board['bo_table'],
+            'wr_id' => $wr_id,
+            'type' => 'comment'
+        ];
+        
+        $result = $filter->detectSpam($content, '', $options);
+        
+        if ($result && $result['spam']) {
+            // 간소한 스팸 탐지 메시지
+            $message = '스팸으로 의심되는 댓글이 작성되었습니다.\\n\\n관리자 확인 후 처리됩니다.';
+            
+            // JavaScript 알림창 표시
+            echo "<script>alert('" . $message . "'); history.back();</script>";
+            exit;
+        }
+        
+        return true;
     }
 }
 

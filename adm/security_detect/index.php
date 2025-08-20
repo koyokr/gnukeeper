@@ -53,14 +53,14 @@ $stats = $detectAdmin->getSpamStats();
             </div>
             <div class="toggle-section">
                 <div class="toggle-info">
-                    <h3 class="toggle-title">정규식 필터링</h3>
-                    <p class="toggle-desc">사용자 정의 정규식 패턴으로 스팸 콘텐츠 차단<br>
-                    <span class="toggle-desc" style="margin-top: 4px; display: inline-block;">정규식 필터링이 OFF 상태여도 차단된 스팸 IP 목록을 확인할 수 있습니다.</span></p>
+                    <h3 class="toggle-title">자동 차단 기능</h3>
+                    <p class="toggle-desc">스팸 콘텐츠 탐지 시 자동으로 IP 차단<br>
+                    <span class="toggle-desc" style="margin-top: 4px; display: inline-block;">OFF 상태에서도 스팸 탐지 및 로그 기록은 계속 동작합니다.</span></p>
                 </div>
                 <input type="checkbox"
                        id="regex-spam-toggle"
                        class="toggle-input"
-                       <?php echo $stats['regex_spam_enabled'] == '1' ? 'checked' : ''; ?>
+                       <?php echo $stats['spam_content_enabled'] == '1' ? 'checked' : ''; ?>
                        onchange="toggleFeature(this, 'regex_spam')">
                 <label for="regex-spam-toggle" class="toggle-switch"></label>
             </div>
@@ -68,14 +68,56 @@ $stats = $detectAdmin->getSpamStats();
             <!-- 스팸 콘텐츠 차단 목록 -->
             <div class="sub-card">
                 <div class="sub-card-header" onclick="toggleSubCard('spam-logs-details', this)">
-                    스팸 콘텐츠 차단 IP <span class="sub-card-toggle">▶</span>
+                    스팸 콘텐츠 탐지 로그 <span class="sub-card-toggle">▶</span>
                 </div>
                 <div class="sub-card-content" id="spam-logs-details">
                     <div id="spam-logs-table" class="ip-list">
                         <div class="empty-state">
                             <div class="empty-state-icon">🔍</div>
-                            <p>스팸 콘텐츠로 차단된 IP가 없습니다</p>
-                            <small>정규식 필터링으로 차단된 스팸 IP가 발견되지 않았습니다.</small>
+                            <p>스팸 콘텐츠 탐지 로그가 없습니다</p>
+                            <small>스팸 키워드로 탐지된 콘텐츠가 발견되지 않았습니다.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 스팸 키워드 관리 -->
+            <div class="sub-card">
+                <div class="sub-card-header" onclick="toggleSubCard('spam-keywords-details', this)">
+                    스팸 키워드 관리 
+                    <div style="display: inline-flex; align-items: center; gap: 10px; margin-left: auto;">
+                        <button class="btn btn-sm btn-secondary" onclick="resetSpamKeywords()" style="font-size: 12px; padding: 4px 8px;" title="기본 시스템 키워드로 초기화">
+                            🔄 설정 초기화
+                        </button>
+                        <span class="sub-card-toggle">▶</span>
+                    </div>
+                </div>
+                <div class="sub-card-content" id="spam-keywords-details">
+                    <div class="keyword-management">
+                        <div class="keyword-add-section">
+                            <h4>새 키워드 추가</h4>
+                            <div class="keyword-form">
+                                <select id="keyword-category">
+                                    <option value="성인/유흥 광고 필터">성인/유흥 광고 필터</option>
+                                    <option value="도박/먹튀 필터">도박/먹튀 필터</option>
+                                    <option value="성기능/의약품 필터">성기능/의약품 필터</option>
+                                    <option value="온라인 환전/도박 필터">온라인 환전/도박 필터</option>
+                                    <option value="기타">기타</option>
+                                </select>
+                                <input type="text" id="keyword-text" placeholder="키워드 입력" maxlength="100">
+                                <select id="keyword-score">
+                                    <option value="1">위험도 1</option>
+                                    <option value="2">위험도 2</option>
+                                    <option value="3" selected>위험도 3</option>
+                                    <option value="4">위험도 4</option>
+                                    <option value="5">위험도 5</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="addSpamKeyword()">추가</button>
+                            </div>
+                        </div>
+                        
+                        <div id="keywords-table" class="keywords-list">
+                            <!-- 키워드 목록이 로드됩니다 -->
                         </div>
                     </div>
                 </div>
@@ -256,6 +298,34 @@ const showToast = (message, type = 'info') => {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+};
+
+// 콘텐츠 샘플에서 탐지된 키워드 주변 텍스트 추출
+const getContentSampleWithContext = (content, keywords) => {
+    if (!content || !keywords.length) return '';
+    
+    const contentLower = content.toLowerCase();
+    let bestMatch = null;
+    let bestPos = -1;
+    
+    // 가장 먼저 나타나는 키워드 찾기
+    for (const kw of keywords) {
+        const pos = contentLower.indexOf(kw.keyword.toLowerCase());
+        if (pos !== -1 && (bestPos === -1 || pos < bestPos)) {
+            bestMatch = kw.keyword;
+            bestPos = pos;
+        }
+    }
+    
+    if (bestMatch && bestPos !== -1) {
+        const start = Math.max(0, bestPos - 10);
+        const end = Math.min(content.length, bestPos + bestMatch.length + 10);
+        const sample = content.substring(start, end);
+        
+        return (start > 0 ? '...' : '') + sample + (end < content.length ? '...' : '');
+    }
+    
+    return content.substring(0, 100) + (content.length > 100 ? '...' : '');
 };
 
 const apiCall = async (action, data = {}) => {
@@ -898,6 +968,12 @@ const toggleSubCard = (targetId, headerElement) => {
         } else if (targetId === 'multiuser-logs-details' && !headerElement.dataset.loaded) {
             loadMultiUserLogs();
             headerElement.dataset.loaded = 'true';
+        } else if (targetId === 'spam-logs-details' && !headerElement.dataset.loaded) {
+            loadSpamContentLogs();
+            headerElement.dataset.loaded = 'true';
+        } else if (targetId === 'spam-keywords-details' && !headerElement.dataset.loaded) {
+            loadSpamKeywords();
+            headerElement.dataset.loaded = 'true';
         }
     }
 };
@@ -962,6 +1038,489 @@ const deleteAllBotLogs = async () => {
     if (result.success) {
         // 성공시 테이블 다시 로드
         loadBotLogs();
+    }
+};
+
+// 스팸 콘텐츠 탐지 로그 로드
+const loadSpamContentLogs = async (page = 1, filters = {}) => {
+    console.log('Loading spam content logs...');
+    const container = document.getElementById('spam-logs-table');
+    let result = { success: false, data: [] };
+    
+    try {
+        // API 호출을 직접 fetch로 수행
+        const formData = new FormData();
+        formData.append('action', 'get_spam_content_logs');
+        formData.append('page', page);
+        formData.append('limit', 10);
+        
+        // 필터 파라미터 추가
+        Object.keys(filters).forEach(key => {
+            formData.append(key, filters[key]);
+        });
+        
+        console.log('Sending API request...');
+        const response = await fetch('./api.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        console.log('API response status:', response.status);
+        result = await response.json();
+        console.log('API result:', result);
+        console.log('result.success:', result.success);
+        console.log('result.data:', result.data);
+        console.log('result.data type:', typeof result.data);
+        console.log('result.data length:', result.data ? result.data.length : 'undefined');
+    } catch (error) {
+        console.error('API call failed:', error);
+        result = { success: false, data: [], error: error.message };
+    }
+
+    if (result.success && result.data && result.data.length > 0) {
+        container.innerHTML = `
+            <table class="ip-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <button class="btn-delete-all" onclick="deleteAllSpamContentLogs()" title="모든 스팸 콘텐츠 탐지 로그 삭제">
+                                🗑️
+                            </button>
+                        </th>
+                        <th>IP 주소</th>
+                        <th>작성자 ID</th>
+                        <th>게시판 정보</th>
+                        <th>탐지 키워드</th>
+                        <th>위험 점수</th>
+                        <th>콘텐츠 샘플</th>
+                        <th>탐지 시간</th>
+                        <th>조치</th>
+                        <th>처리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${result.data.map(log => {
+                        const keywords = JSON.parse(log.sscl_detected_keywords || '[]');
+                        const keywordsByCategory = {};
+                        keywords.forEach(k => {
+                            if (!keywordsByCategory[k.category]) {
+                                keywordsByCategory[k.category] = [];
+                            }
+                            keywordsByCategory[k.category].push(k.keyword);
+                        });
+                        
+                        const categoryText = Object.keys(keywordsByCategory).map(cat => {
+                            const kws = keywordsByCategory[cat].join(', ');
+                            return `[${cat}] ${kws}`;
+                        }).join(' / ');
+                        
+                        const contentSample = getContentSampleWithContext(log.sscl_content_sample, keywords);
+                        const boardUrl = log.sscl_bo_table && log.sscl_wr_id ? `/bbs/board.php?bo_table=${log.sscl_bo_table}&wr_id=${log.sscl_wr_id}` : '';
+                        
+                        return `
+                        <tr ${log.sscl_auto_blocked == '1' ? 'class="blocked-ip"' : ''}>
+                            <td>
+                                <button class="btn-delete" onclick="deleteSpamContentLog('${log.sscl_id}', this)" title="이 스팸 탐지 로그 삭제">
+                                    ✕
+                                </button>
+                            </td>
+                            <td>
+                                <div class="ip-address">${log.sscl_ip}</div>
+                            </td>
+                            <td>
+                                <div class="log-user">${log.sscl_mb_id || '-'}</div>
+                            </td>
+                            <td>
+                                <div class="board-info">
+                                    ${log.sscl_bo_table ? 
+                                        `<div class="board-name">${log.sscl_bo_table}</div>
+                                         <small class="board-link">
+                                             ${boardUrl ? `<a href="${boardUrl}" target="_blank" title="게시글 보기">글#${log.sscl_wr_id}</a>` : '게시글 삭제됨'}
+                                         </small>` 
+                                        : '<span class="text-muted">-</span>'}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="keyword-list" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis;" title="${categoryText}">
+                                    <span class="keyword-count">${log.sscl_keyword_count}개:</span><br>
+                                    <small>${categoryText}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="score-badge ${log.sscl_total_score >= 12 ? 'danger' : log.sscl_total_score >= 7 ? 'warning' : 'normal'}">${log.sscl_total_score}점</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="content-sample" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${log.sscl_content_sample || ''}">
+                                    ${contentSample}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="log-time">${log.sscl_datetime}</div>
+                            </td>
+                            <td>
+                                <div>
+                                    ${log.sscl_action_taken === 'auto_blocked' 
+                                        ? '<span class="action-status auto-blocked">🔒 자동차단</span>' 
+                                        : log.sscl_action_taken === 'blocked' 
+                                            ? '<span class="action-status blocked">⚠️ 차단됨</span>'
+                                            : log.sscl_action_taken === 'detected'
+                                                ? '<span class="action-status detected">🔍 탐지</span>'
+                                                : '<span class="action-status pending">⏳ 탐지</span>'}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    ${log.sscl_auto_blocked != '1' 
+                                        ? `<button class="btn btn-sm btn-danger" onclick="blockSpamContentIP('${log.sscl_ip}', this)">IP 차단</button>`
+                                        : '<span class="text-muted">차단됨</span>'}
+                                </div>
+                            </td>
+                        </tr>
+                    `;}).join('')}
+                </tbody>
+            </table>
+            ${result.total_pages > 1 ? `
+                <div class="pagination">
+                    ${page > 1 ? `<button class="btn btn-secondary btn-sm" onclick="loadSpamContentLogsWithCurrentFilter(${page - 1})">이전</button>` : ''}
+                    <span class="page-info">페이지 ${page} / ${result.total_pages}</span>
+                    ${page < result.total_pages ? `<button class="btn btn-secondary btn-sm" onclick="loadSpamContentLogsWithCurrentFilter(${page + 1})">다음</button>` : ''}
+                </div>
+            ` : ''}
+        `;
+    } else {
+        console.log('Empty state triggered');
+        console.log('result.success:', result.success);
+        console.log('result.data exists:', !!result.data);
+        console.log('result.data length:', result.data ? result.data.length : 'N/A');
+        console.log('Full result object:', JSON.stringify(result, null, 2));
+        
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <p>스팸 콘텐츠 탐지 로그가 없습니다</p>
+                <small>스팸 키워드로 탐지된 콘텐츠가 발견되지 않았습니다.</small>
+                <small style="margin-top: 10px; color: #666;">
+                    Debug: success=${result.success}, data=${result.data ? 'exists' : 'null'}, 
+                    length=${result.data ? result.data.length : 'N/A'}
+                </small>
+            </div>
+        `;
+    }
+};
+
+// 스팸 키워드 목록 로드
+const loadSpamKeywords = async (page = 1) => {
+    const result = await apiCall('get_spam_keywords', { page: page, limit: 100 });
+    const container = document.getElementById('keywords-table');
+
+    if (result.success && result.data.length > 0) {
+        // 카테고리별로 그룹화
+        const groupedKeywords = {};
+        const availableCategories = new Set();
+        
+        result.data.forEach(keyword => {
+            if (!groupedKeywords[keyword.ssk_category]) {
+                groupedKeywords[keyword.ssk_category] = [];
+            }
+            groupedKeywords[keyword.ssk_category].push(keyword);
+            availableCategories.add(keyword.ssk_category);
+        });
+
+        // 카테고리 선택 드롭다운 업데이트
+        updateCategoryDropdown(availableCategories);
+
+        let html = `
+            <div class="keywords-table-header">
+                <div class="header-item category-col">항목</div>
+                <div class="header-item keyword-col">키워드</div>
+                <div class="header-item score-col">위험도</div>
+                <div class="header-item actions-col">작업</div>
+            </div>
+        `;
+        
+        // 카테고리별로 출력
+        Object.keys(groupedKeywords).sort().forEach(category => {
+            // 해당 카테고리의 키워드들
+            groupedKeywords[category].sort((a, b) => b.ssk_score - a.ssk_score).forEach(keyword => {
+                html += `
+                    <div class="keyword-item">
+                        <span class="keyword-category">${keyword.ssk_category}</span>
+                        <span class="keyword-text">${keyword.ssk_keyword}</span>
+                        <span class="keyword-score score-${keyword.ssk_score}">${keyword.ssk_score}점</span>
+                        <div class="keyword-actions">
+                            <button class="btn-keyword-edit" onclick="editKeywordScore('${keyword.ssk_keyword}', ${keyword.ssk_score})">수정</button>
+                            <button class="btn-keyword-delete" onclick="deleteKeyword('${keyword.ssk_keyword}')">삭제</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <p>등록된 스팸 키워드가 없습니다</p>
+                <small>새 키워드를 추가하여 스팸 탐지를 시작하세요.</small>
+            </div>
+        `;
+    }
+};
+
+// 스팸 키워드 추가
+const addSpamKeyword = async () => {
+    const category = document.getElementById('keyword-category').value;
+    const keyword = document.getElementById('keyword-text').value.trim();
+    const score = document.getElementById('keyword-score').value;
+
+    if (!keyword) {
+        showToast('키워드를 입력하세요.', 'error');
+        return;
+    }
+
+    const result = await apiCall('add_spam_keyword', {
+        category: category,
+        keyword: keyword,
+        score: score
+    });
+
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        document.getElementById('keyword-text').value = '';
+        loadSpamKeywords();
+    }
+};
+
+// 키워드 점수 수정
+const editKeywordScore = async (keyword, currentScore) => {
+    const newScore = prompt(`키워드 "${keyword}"의 새로운 위험도 점수를 입력하세요 (1-5):`, currentScore);
+    
+    if (newScore === null) return;
+    
+    const score = parseInt(newScore);
+    if (isNaN(score) || score < 1 || score > 5) {
+        showToast('1-5 사이의 숫자를 입력하세요.', 'error');
+        return;
+    }
+
+    const result = await apiCall('update_keyword_score', {
+        keyword: keyword,
+        score: score
+    });
+
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadSpamKeywords();
+    }
+};
+
+// 키워드 삭제
+const deleteKeyword = async (keyword) => {
+    if (!confirm(`키워드 "${keyword}"를 삭제하시겠습니까?`)) return;
+
+    const result = await apiCall('delete_spam_keyword', { keyword: keyword });
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadSpamKeywords();
+    }
+};
+
+// 스팸 콘텐츠 IP 차단
+const blockSpamContentIP = async (ip, button) => {
+    if (!confirm(`IP ${ip}를 차단하시겠습니까?`)) return;
+
+    button.disabled = true;
+    button.textContent = '처리 중...';
+
+    const result = await apiCall('block_spam_content_ip', { ip: ip });
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadSpamContentLogs();
+    } else {
+        button.disabled = false;
+        button.textContent = 'IP 차단';
+    }
+};
+
+// 스팸 콘텐츠 로그 삭제
+const deleteSpamContentLog = async (logId, button) => {
+    if (!confirm('이 스팸 탐지 로그를 삭제하시겠습니까?')) return;
+
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '⏳';
+
+    const result = await apiCall('delete_spam_content_log', { log_id: logId });
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        const row = button.closest('tr');
+        row.style.opacity = '0';
+        setTimeout(() => {
+            row.remove();
+        }, 300);
+    } else {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+};
+
+// 모든 스팸 콘텐츠 로그 삭제
+const deleteAllSpamContentLogs = async () => {
+    if (!confirm('⚠️ 모든 스팸 콘텐츠 탐지 로그를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
+    
+    if (!confirm('정말로 모든 스팸 탐지 로그를 삭제하시겠습니까?')) return;
+
+    const result = await apiCall('delete_all_spam_content_logs');
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadSpamContentLogs();
+    }
+};
+
+// 스팸 키워드 설정 초기화
+const resetSpamKeywords = async () => {
+    if (!confirm('⚠️ 스팸 키워드를 기본 시스템 설정으로 초기화하시겠습니까?\n\n현재 등록된 모든 키워드가 삭제되고 기본 키워드로 대체됩니다.')) return;
+    
+    if (!confirm('정말로 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+    const result = await apiCall('reset_spam_keywords');
+    showToast(result.message, result.success ? 'success' : 'error');
+
+    if (result.success) {
+        loadSpamKeywords();
+    }
+};
+
+// 현재 필터 설정으로 페이지네이션
+const loadSpamContentLogsWithCurrentFilter = (page) => {
+    const currentFilters = getCurrentSpamLogFilters();
+    loadSpamContentLogs(page, currentFilters);
+};
+
+// 현재 필터 설정 가져오기
+const getCurrentSpamLogFilters = () => {
+    const filters = {};
+    
+    const actionFilter = document.getElementById('spam-log-filter-action');
+    const scoreFilter = document.getElementById('spam-log-filter-score');
+    const daysFilter = document.getElementById('spam-log-filter-days');
+    
+    if (actionFilter && actionFilter.value) filters.action = actionFilter.value;
+    if (scoreFilter && scoreFilter.value) filters.score = scoreFilter.value;
+    if (daysFilter && daysFilter.value) filters.days = daysFilter.value;
+    
+    return filters;
+};
+
+// 스팸 로그 필터 적용
+const applySpamLogFilter = () => {
+    const filters = getCurrentSpamLogFilters();
+    loadSpamContentLogs(1, filters);
+};
+
+// 스팸 로그 필터 초기화
+const resetSpamLogFilter = () => {
+    const actionFilter = document.getElementById('spam-log-filter-action');
+    const scoreFilter = document.getElementById('spam-log-filter-score');
+    const daysFilter = document.getElementById('spam-log-filter-days');
+    
+    if (actionFilter) actionFilter.value = '';
+    if (scoreFilter) scoreFilter.value = '';
+    if (daysFilter) daysFilter.value = '';
+    
+    loadSpamContentLogs(1);
+};
+
+// 카테고리 드롭다운 업데이트
+const updateCategoryDropdown = (availableCategories) => {
+    const categorySelect = document.getElementById('keyword-category');
+    if (!categorySelect) return;
+    
+    // 현재 선택된 값 보존
+    const currentValue = categorySelect.value;
+    
+    // 기존 옵션들 저장
+    const existingOptions = Array.from(categorySelect.options).map(option => option.value);
+    
+    // 새로운 카테고리가 있으면 추가
+    availableCategories.forEach(category => {
+        if (!existingOptions.includes(category)) {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            categorySelect.appendChild(option);
+        }
+    });
+    
+    // 이전 선택값 복원
+    if (currentValue && existingOptions.includes(currentValue)) {
+        categorySelect.value = currentValue;
+    }
+};
+
+// 새 카테고리 추가
+const addNewCategory = async () => {
+    const categoryName = document.getElementById('new-category-name').value.trim();
+    
+    if (!categoryName) {
+        showToast('카테고리명을 입력해주세요.', 'error');
+        return;
+    }
+    
+    if (categoryName.length > 50) {
+        showToast('카테고리명은 50자 이하로 입력해주세요.', 'error');
+        return;
+    }
+    
+    // 카테고리 선택 드롭다운에 추가
+    const categorySelect = document.getElementById('keyword-category');
+    const existingOptions = Array.from(categorySelect.options).map(option => option.value);
+    
+    if (existingOptions.includes(categoryName)) {
+        showToast('이미 존재하는 카테고리입니다.', 'error');
+        return;
+    }
+    
+    // 새 옵션 추가
+    const option = document.createElement('option');
+    option.value = categoryName;
+    option.textContent = categoryName;
+    categorySelect.appendChild(option);
+    
+    // 새로 추가된 카테고리를 선택
+    categorySelect.value = categoryName;
+    
+    // 입력 필드 초기화
+    document.getElementById('new-category-name').value = '';
+    
+    showToast(`"${categoryName}" 카테고리가 추가되었습니다. 이제 키워드를 추가할 수 있습니다.`, 'success');
+};
+
+// 카테고리 삭제
+const deleteCategory = async (category) => {
+    if (!confirm(`"${category}" 카테고리와 해당 카테고리의 모든 키워드를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
+    
+    const result = await apiCall('delete_category', { category: category });
+    showToast(result.message, result.success ? 'success' : 'error');
+    
+    if (result.success) {
+        // 카테고리 드롭다운에서 제거
+        const categorySelect = document.getElementById('keyword-category');
+        const optionToRemove = Array.from(categorySelect.options).find(option => option.value === category);
+        if (optionToRemove) {
+            optionToRemove.remove();
+        }
+        
+        loadSpamKeywords();
     }
 };
 
