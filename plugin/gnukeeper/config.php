@@ -48,7 +48,7 @@ define('GK_SECURITY_REGEX_SPAM_LOG_TABLE', G5_TABLE_PREFIX . 'security_regex_spa
 define('GK_SECURITY_SPAM_LOG_TABLE', G5_TABLE_PREFIX . 'security_spam_log');
 
 // 플러그인 버전
-define('GK_VERSION', '1.0.0');
+define('GK_VERSION', '0.1.0');
 
 // GitHub 레포지토리 정보 (버전 체크용)
 define('GK_GITHUB_REPO', 'koyokr/gnukeeper');
