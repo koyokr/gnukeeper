@@ -152,8 +152,8 @@ function get_all_security_settings() {
         $settings['debug_spam_stats'] = null;
         $settings['debug_detection_settings'] = array(
             'spam_content_enabled' => $merged_config['spam_content_enabled'] ?? 'not_set',
-            'login_threat_enabled' => $merged_config['login_threat_enabled'] ?? 'not_set',
-            'user_agent_enabled' => $merged_config['user_agent_enabled'] ?? 'not_set',
+            'login_block_enabled' => $merged_config['login_block_enabled'] ?? 'not_set',
+            'useragent_block_enabled' => $merged_config['useragent_block_enabled'] ?? 'not_set',
             'behavior_404_enabled' => $merged_config['behavior_404_enabled'] ?? 'not_set',
             'behavior_referer_enabled' => $merged_config['behavior_referer_enabled'] ?? 'not_set',
             'multiuser_login_enabled' => $merged_config['multiuser_login_enabled'] ?? 'not_set'
@@ -255,12 +255,12 @@ function get_all_security_settings() {
         $spam_content_setting = $merged_config['spam_content_enabled'] ?? '0';
         $settings['spam_content_enabled'] = ($spam_content_setting == '1');
         
-        // 9. 로그인 위협 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
-        $login_threat_setting = $merged_config['login_threat_enabled'] ?? '0';
+        // 9. 로그인 위협 탐지 - 실제 저장 키: login_block_enabled
+        $login_threat_setting = $merged_config['login_block_enabled'] ?? '0';
         $settings['login_threat_enabled'] = ($login_threat_setting == '1');
         
-        // 10. 악성 봇 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
-        $bot_detection_setting = $merged_config['user_agent_enabled'] ?? '0';
+        // 10. 악성 봇 탐지 - 실제 저장 키: useragent_block_enabled
+        $bot_detection_setting = $merged_config['useragent_block_enabled'] ?? '0';
         $settings['bot_detection_enabled'] = ($bot_detection_setting == '1');
         
         // 11. 비정상 행동 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
