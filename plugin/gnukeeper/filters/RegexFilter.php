@@ -68,12 +68,10 @@ class GK_RegexFilter {
 
                     if ($is_blocking_enabled) {
                         // ON 상태에서만 차단 처리
-                        // 자동 IP 차단 (설정에 따라)
-                        if (GK_Common::get_config('regex_spam_auto_block') == '1') {
-                            $ip = $_SERVER['REMOTE_ADDR'];
-                            $reason = '정규식 스팸 탐지: ' . $rule['srs_name'];
-                            GK_SpamDetector::auto_block_ip($ip, 'auto_regex', $reason);
-                        }
+                        // 자동 IP 차단 (스팸 탐지가 ON이면 자동으로 IP도 차단)
+                        $ip = $_SERVER['REMOTE_ADDR'];
+                        $reason = '정규식 스팸 탐지: ' . $rule['srs_name'];
+                        GK_SpamDetector::auto_block_ip($ip, 'auto_regex', $reason);
 
                         // 액션 처리
                         return self::handle_action($rule['srs_action']);

@@ -269,6 +269,53 @@ if (isset($_POST['action'])) {
                 echo json_encode(['success' => true, 'message' => $message]);
             }
             break;
+            
+        case 'remove_extension':
+            // 확장자 제거 기능
+            $extension = isset($_POST['extension']) ? trim($_POST['extension']) : '';
+            
+            if (empty($extension)) {
+                echo json_encode(['success' => false, 'message' => '제거할 확장자가 지정되지 않았습니다.']);
+                break;
+            }
+            
+            try {
+                // 현재 설정된 모든 확장자 필드에서 제거
+                $extension_fields = ['cf_image_extension', 'cf_flash_extension', 'cf_movie_extension'];
+                $updated = false;
+                
+                foreach ($extension_fields as $field) {
+                    $sql = "SELECT {$field} FROM {$g5['config_table']} WHERE cf_id = 1";
+                    $result = sql_fetch($sql);
+                    
+                    if ($result && !empty($result[$field])) {
+                        $extensions = explode('|', $result[$field]);
+                        $original_count = count($extensions);
+                        
+                        // 대소문자 구분 없이 제거
+                        $extensions = array_filter($extensions, function($ext) use ($extension) {
+                            return strtolower(trim($ext)) !== strtolower($extension);
+                        });
+                        
+                        if (count($extensions) < $original_count) {
+                            $new_value = implode('|', $extensions);
+                            $update_sql = "UPDATE {$g5['config_table']} SET {$field} = '{$new_value}' WHERE cf_id = 1";
+                            sql_query($update_sql);
+                            $updated = true;
+                        }
+                    }
+                }
+                
+                if ($updated) {
+                    echo json_encode(['success' => true, 'message' => "확장자 '{$extension}'이(가) 제거되었습니다."]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => "확장자 '{$extension}'을(를) 찾을 수 없습니다."]);
+                }
+                
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => '확장자 제거 중 오류가 발생했습니다: ' . $e->getMessage()]);
+            }
+            break;
     }
     exit;
 }
@@ -278,6 +325,35 @@ require_once './admin.head.php';
 ?>
 
 <link rel="stylesheet" href="./css/security_common.css">
+
+<!-- 강력한 회전 방지 CSS -->
+<style>
+/* 모든 토글 관련 요소의 회전 방지 */
+.card-header, .card-header *, 
+.security-card, .security-card *,
+.card-toggle, .card-toggle *,
+.toggle-btn, .toggle-btn * {
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+}
+
+/* 카드 전체 회전 방지 */
+.security-card.expanded,
+.security-card.collapsed,
+.security-card:hover {
+    transform: none !important;
+    rotate: none !important;
+}
+
+/* 토글 버튼 회전 방지 */
+.card-header .toggle-btn,
+.card-header .card-toggle,
+.card-header span[onclick] {
+    transform: none !important;
+    rotate: none !important;
+}
+</style>
 
 <div class="security-dashboard">
     <h1 class="dashboard-title">
@@ -349,11 +425,13 @@ const restorePageState = () => {
                     if (isOpen) {
                         content.classList.add('show');
                         toggle.textContent = '▼';
-                        toggle.style.transform = 'rotate(90deg)';
+                        // transform 제거 (회전 방지)
+                        toggle.style.transform = 'none';
                     } else {
                         content.classList.remove('show');
                         toggle.textContent = '▶';
-                        toggle.style.transform = 'rotate(0deg)';
+                        // transform 제거 (회전 방지)
+        toggle.style.transform = 'none';
                     }
                 }
             });
@@ -371,10 +449,12 @@ function toggleCard(cardId) {
 
     if (content.classList.contains('show')) {
         content.classList.remove('show');
-        toggle.style.transform = 'rotate(0deg)';
+        // transform 제거 (회전 방지)
+        toggle.style.transform = 'none';
     } else {
         content.classList.add('show');
-        toggle.style.transform = 'rotate(90deg)';
+        // transform 제거 (회전 방지)
+        toggle.style.transform = 'none';
     }
 }
 
@@ -605,7 +685,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (cardContent && toggle) {
                         cardContent.classList.add('show');
                         toggle.textContent = '▼';
-                        toggle.style.transform = 'rotate(90deg)';
+                        // transform 제거 (회전 방지)
+                        toggle.style.transform = 'none';
                     }
                 }, 500);
             }, index * 100);

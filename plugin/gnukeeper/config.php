@@ -45,6 +45,7 @@ define('GK_SECURITY_404_LOG_TABLE', G5_TABLE_PREFIX . 'security_404_log');
 define('GK_SECURITY_REFERER_LOG_TABLE', G5_TABLE_PREFIX . 'security_referer_log');
 define('GK_SECURITY_REGEX_SPAM_TABLE', G5_TABLE_PREFIX . 'security_regex_spam');
 define('GK_SECURITY_REGEX_SPAM_LOG_TABLE', G5_TABLE_PREFIX . 'security_regex_spam_log');
+define('GK_SECURITY_BEHAVIOR_LOG_TABLE', G5_TABLE_PREFIX . 'security_behavior_log');
 define('GK_SECURITY_SPAM_LOG_TABLE', G5_TABLE_PREFIX . 'security_spam_log');
 
 // 플러그인 버전

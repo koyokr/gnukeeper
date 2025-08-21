@@ -64,6 +64,58 @@ class GK_UserAgentFilter {
     }
 
     /**
+     * 차단하지 않고 탐지만 하는 체크 함수
+     */
+    public static function checkWithoutBlock() {
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        
+        // 디버그 로그
+        error_log("UserAgent Debug: '$user_agent'", 3, '/tmp/useragent_debug.log');
+        
+        if (empty($user_agent)) {
+            self::log_detection('User-Agent 없음', false);
+            return 'User-Agent 없음';
+        }
+
+        // 악성 User-Agent 패턴 체크 (더 포괄적으로)
+        $malicious_patterns = [
+            'bot', 'crawler', 'spider', 'scraper', 'wget', 'curl', 'python',
+            'ruby', 'perl', 'java', 'httpclient', 'scanner', 'harvester',
+            'requests', 'urllib'  // Python requests 라이브러리 추가
+        ];
+
+        foreach ($malicious_patterns as $pattern) {
+            if (stripos($user_agent, $pattern) !== false) {
+                error_log("UserAgent Match: pattern='$pattern' in '$user_agent'", 3, '/tmp/useragent_debug.log');
+                self::log_detection('악성 User-Agent 탐지: ' . $pattern, false);
+                return '악성 User-Agent: ' . $pattern;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 로그만 기록하는 함수
+     */
+    private static function log_detection($reason, $is_blocking) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $url = $_SERVER['REQUEST_URI'] ?? '';
+
+        $sql = "INSERT INTO " . GK_SECURITY_SPAM_LOG_TABLE . "
+                (sl_ip, sl_reason, sl_url, sl_user_agent, sl_datetime)
+                VALUES (
+                    '" . sql_escape_string($ip) . "',
+                    '" . sql_escape_string($reason) . "',
+                    '" . sql_escape_string($url) . "',
+                    '" . sql_escape_string($user_agent) . "',
+                    NOW()
+                )";
+        sql_query($sql);
+    }
+
+    /**
      * 탐지 처리 (차단 여부에 따라 다르게 동작)
      */
     private static function handle_detection($user_agent, $is_blocking_enabled) {

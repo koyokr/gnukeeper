@@ -8,34 +8,61 @@ if (!defined('_GNUBOARD_')) exit;
 class GK_Common {
 
     /**
-     * CIDR 파싱
+     * CIDR 파싱 (IPv4, IPv6 지원)
      */
     public static function parse_cidr($cidr) {
-        // 단일 IP인 경우 /32 자동 추가
+        // 단일 IP인 경우 적절한 prefix 자동 추가
         if (!strpos($cidr, '/')) {
-            $cidr = $cidr . '/32';
+            // IPv6인지 확인
+            if (filter_var($cidr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                $cidr = $cidr . '/128';
+            } else {
+                $cidr = $cidr . '/32';
+            }
         }
 
-        if (!preg_match('/^([0-9.]+)\/([0-9]+)$/', $cidr, $matches)) {
+        // CIDR 형식 파싱
+        $parts = explode('/', $cidr);
+        if (count($parts) !== 2) {
             return false;
         }
 
-        $ip = $matches[1];
-        $prefix = (int)$matches[2];
+        $ip = $parts[0];
+        $prefix = (int)$parts[1];
 
-        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || $prefix < 0 || $prefix > 32) {
-            return false;
+        // IPv4 처리
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            if ($prefix < 0 || $prefix > 32) {
+                return false;
+            }
+
+            $ip_long = ip2long($ip);
+            $mask = ~((1 << (32 - $prefix)) - 1);
+            $start = $ip_long & $mask;
+            $end = $start | ~$mask;
+
+            return [
+                'start' => sprintf('%u', $start),
+                'end' => sprintf('%u', $end),
+                'type' => 'ipv4'
+            ];
+        }
+        // IPv6 처리
+        else if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            if ($prefix < 0 || $prefix > 128) {
+                return false;
+            }
+
+            // IPv6는 단순 저장 (범위 계산 복잡함)
+            return [
+                'start' => $ip,
+                'end' => $ip,
+                'type' => 'ipv6',
+                'prefix' => $prefix
+            ];
         }
 
-        $ip_long = ip2long($ip);
-        $mask = ~((1 << (32 - $prefix)) - 1);
-        $start = $ip_long & $mask;
-        $end = $start | ~$mask;
-
-        return [
-            'start' => sprintf('%u', $start),
-            'end' => sprintf('%u', $end)
-        ];
+        return false;
     }
 
     /**

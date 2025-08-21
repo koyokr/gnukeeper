@@ -212,6 +212,86 @@ class GK_BehaviorFilter {
     }
 
     /**
+     * 차단하지 않고 탐지만 하는 Referer 체크
+     */
+    public static function checkBusinessRefererWithoutBlock() {
+        $current_script = $_SERVER['SCRIPT_NAME'] ?? '';
+        $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        
+        // POST 요청이 아니면 검사하지 않음
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return false;
+        }
+        
+        // Referer 검증이 필요한 페이지 목록 (간단 버전)
+        $referer_required_pages = [
+            '/bbs/login_check.php' => '로그인 처리',
+            '/bbs/register_form_update.php' => '회원가입 처리',
+            '/bbs/write_update.php' => '게시글 작성',
+            '/bbs/write_comment_update.php' => '댓글 작성',
+            '/bbs/scrap_popin_update.php' => '스크랩',
+        ];
+        
+        foreach ($referer_required_pages as $page => $reason) {
+            if (strpos($current_script, $page) !== false) {
+                $issue_type = '';
+                
+                if (empty($referer)) {
+                    $issue_type = 'Referer 없음';
+                } else {
+                    $parsed_referer = parse_url($referer);
+                    $referer_host = $parsed_referer['host'] ?? '';
+                    $current_host = $_SERVER['HTTP_HOST'] ?? '';
+                    
+                    if ($referer_host !== $current_host) {
+                        $issue_type = '외부 도메인 Referer';
+                    }
+                }
+                
+                if ($issue_type) {
+                    // 로그 기록
+                    self::log_behavior_detection($ip, $current_script, $issue_type, $referer, $reason);
+                    return $issue_type . ' (' . $reason . ')';
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * 행동 탐지 로그 기록
+     */
+    private static function log_behavior_detection($ip, $url, $issue_type, $referer, $reason) {
+        // 비정상 행동 로그에 기록
+        $sql = "INSERT INTO " . GK_SECURITY_BEHAVIOR_LOG_TABLE . "
+                (sbl_ip, sbl_url, sbl_type, sbl_referer, sbl_user_agent, sbl_datetime)
+                VALUES (
+                    '" . sql_escape_string($ip) . "',
+                    '" . sql_escape_string($url) . "',
+                    '" . sql_escape_string($issue_type) . "',
+                    '" . sql_escape_string($referer) . "',
+                    '" . sql_escape_string($_SERVER['HTTP_USER_AGENT'] ?? '') . "',
+                    NOW()
+                )";
+        sql_query($sql);
+        
+        // 스팸 로그에도 기록
+        $log_reason = "비정상 행동 탐지 - {$reason} ({$issue_type})";
+        $sql2 = "INSERT INTO " . GK_SECURITY_SPAM_LOG_TABLE . "
+                (sl_ip, sl_reason, sl_url, sl_user_agent, sl_datetime)
+                VALUES (
+                    '" . sql_escape_string($ip) . "',
+                    '" . sql_escape_string($log_reason) . "',
+                    '" . sql_escape_string($url) . "',
+                    '" . sql_escape_string($_SERVER['HTTP_USER_AGENT'] ?? '') . "',
+                    NOW()
+                )";
+        sql_query($sql2);
+    }
+
+    /**
      * 자동 차단
      */
     private static function auto_block($ip, $type, $reason) {

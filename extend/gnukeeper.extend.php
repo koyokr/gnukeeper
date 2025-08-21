@@ -52,25 +52,67 @@ function gk_override_gnuboard_ip_block() {
 }
 
 // ========================================
-// 2. IP 차단 체크 (최우선 실행)
+// 2. 모든 탐지 시스템 로그 기록 (차단하지 않고 기록만)
 // ========================================
-GK_BlockManager::checkCurrentIP();
 
-// ========================================
-// 3. 해외 IP 차단 체크
-// ========================================
-GK_BlockManager::checkForeignIP();
+// 차단 플래그들
+$should_block = false;
+$block_reason = '';
 
-// ========================================
-// 4. User-Agent 필터
-// ========================================
+// IP 차단 체크 (항상 실행 - 로그만 기록)
+$ip_block_info = GK_BlockManager::get_block_info($_SERVER['REMOTE_ADDR'] ?? '');
+if ($ip_block_info) {
+    $should_block = true;
+    $block_reason = 'IP 차단: ' . $ip_block_info['sb_reason'];
+}
+
+// 해외 IP 차단 체크 (설정 확인 후 실행)
+if (!$should_block && GK_Common::get_config('block_foreign_ip') == '1') {
+    if (!GK_BlockManager::is_korean_ip($_SERVER['REMOTE_ADDR'] ?? '')) {
+        $should_block = true;
+        $block_reason = '해외 IP 차단';
+    }
+}
+
+// User-Agent 필터 (항상 로그 기록, 설정에 따라 차단)
 require_once GK_FILTERS_PATH . '/UserAgentFilter.php';
-gk_log("About to call UserAgentFilter::check()");
-GK_UserAgentFilter::check();
-gk_log("UserAgentFilter::check() completed");
+$useragent_result = GK_UserAgentFilter::checkWithoutBlock();
+if ($useragent_result && GK_Common::get_config('useragent_enabled') == '1') {
+    if (!$should_block) {
+        $should_block = true;
+        $block_reason = '악성 봇 탐지: ' . $useragent_result;
+    }
+}
+
+// 비정상 행동 탐지 (항상 로그 기록, 설정에 따라 차단)
+require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
+$request_method = $_SERVER['REQUEST_METHOD'] ?? '';
+
+if ($request_method === 'POST') {
+    $behavior_result = GK_BehaviorFilter::checkBusinessRefererWithoutBlock();
+    if ($behavior_result && GK_Common::get_config('behavior_referer_enabled') == '1') {
+        if (!$should_block) {
+            $should_block = true;
+            $block_reason = '비정상 행동 탐지: ' . $behavior_result;
+        }
+    }
+}
 
 // ========================================
-// 5. 스팸 필터 등록
+// 3. 차단 실행 (설정이 활성화된 경우에만)
+// ========================================
+if ($should_block) {
+    // 로그 기록
+    error_log("GnuKeeper Block: $block_reason", 3, '/tmp/gnukeeper_block.log');
+    
+    // 실제 차단 (간단한 403 응답)
+    http_response_code(403);
+    echo "Access Denied";
+    exit;
+}
+
+// ========================================
+// 4. 스팸 필터 등록
 // ========================================
 
 // 정규식 필터 등록
@@ -83,28 +125,6 @@ if (gk_get_config('regex_spam_enabled') == '1') {
 if (gk_get_config('multiuser_login_enabled') == '1') {
     require_once GK_FILTERS_PATH . '/MultiUserFilter.php';
     GK_SpamDetector::registerFilter('multiuser', array('GK_MultiUserFilter', 'checkMultiLogin'));
-}
-
-// 행동 패턴 필터 등록
-if (gk_get_config('behavior_404_enabled') == '1' || gk_get_config('behavior_referer_enabled') == '1') {
-    require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
-}
-
-// 비즈니스 로직 기반 Referer 검증 (항상 실행 - OFF 상태에서도 로그 기록)
-require_once GK_FILTERS_PATH . '/BehaviorFilter.php';
-
-// 직접 실행 (이벤트 시스템 문제 우회)
-$request_method = $_SERVER['REQUEST_METHOD'] ?? '';
-$current_script = $_SERVER['SCRIPT_NAME'] ?? '';
-
-// 디버깅 로그
-error_log("Security Hook Debug: Method=$request_method, Script=$current_script", 3, '/tmp/security_hook_debug.log');
-
-if ($request_method === 'POST') {
-    error_log("POST request detected, calling checkBusinessReferer()", 3, '/tmp/security_hook_debug.log');
-    GK_BehaviorFilter::checkBusinessReferer();
-} else {
-    error_log("Not a POST request, skipping referer check", 3, '/tmp/security_hook_debug.log');
 }
 
 // ========================================

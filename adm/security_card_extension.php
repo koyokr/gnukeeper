@@ -272,3 +272,141 @@ $security_grade = getOverallSecurityGrade($analysis);
         </div>
     </div>
 </div>
+
+<script>
+// 확장자 제거 함수
+function removeExtension(extension) {
+    if (!confirm('확장자 "' + extension + '"을(를) 제거하시겠습니까?')) {
+        return;
+    }
+    
+    // AJAX로 확장자 제거 요청
+    fetch('security_extension.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=remove_extension&extension=' + encodeURIComponent(extension)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 성공시 페이지 새로고침
+            location.reload();
+        } else {
+            alert('확장자 제거에 실패했습니다: ' + (data.message || '알 수 없는 오류'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('확장자 제거 중 오류가 발생했습니다.');
+    });
+}
+
+// 카드 토글 함수 (UI 뒤집힘 방지)
+function toggleCard(cardId) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    
+    const content = card.querySelector('.card-content');
+    if (!content) return;
+    
+    // 현재 상태 확인
+    const isCollapsed = content.style.display === 'none' || !content.style.display;
+    
+    if (isCollapsed) {
+        // 펼치기
+        content.style.display = 'block';
+        card.classList.add('expanded');
+        card.classList.remove('collapsed');
+    } else {
+        // 접기
+        content.style.display = 'none';
+        card.classList.add('collapsed');
+        card.classList.remove('expanded');
+    }
+}
+</script>
+
+<style>
+/* UI 뒤집힘 방지 CSS */
+.security-card {
+    transform: none !important;
+    transition: none !important;
+}
+
+.security-card.expanded {
+    transform: none !important;
+}
+
+.security-card.collapsed {
+    transform: none !important;
+}
+
+/* 확장자 제거 버튼 스타일 - 박스 색상과 조화 */
+.extension-remove {
+    background: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    margin-left: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(2px);
+}
+
+.extension-remove:hover {
+    background: rgba(255, 255, 255, 0.5);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: scale(1.05);
+}
+
+/* 위험도별 더 세련된 제거 버튼 */
+.extension-item.high .extension-remove {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.extension-item.high .extension-remove:hover {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.extension-item.medium .extension-remove {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.extension-item.medium .extension-remove:hover {
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.extension-item.low .extension-remove {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.extension-item.low .extension-remove:hover {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.extension-item.unknown .extension-remove {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.extension-item.unknown .extension-remove:hover {
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+</style>

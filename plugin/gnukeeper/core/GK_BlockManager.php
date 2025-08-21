@@ -34,8 +34,8 @@ class GK_BlockManager {
         // 현재 접속자 IP 주소 확인
         $current_ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-        // IP 유효성 검사
-        if (empty($current_ip) || !filter_var($current_ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        // IP 유효성 검사 (IPv4, IPv6 모두 지원)
+        if (empty($current_ip) || !filter_var($current_ip, FILTER_VALIDATE_IP)) {
             return;
         }
 
@@ -107,17 +107,33 @@ class GK_BlockManager {
     }
 
     /**
-     * IP 차단 정보 조회
+     * IP 차단 정보 조회 (IPv4/IPv6 지원)
      */
     public static function get_block_info($ip) {
-        $ip_long = sprintf('%u', ip2long($ip));
-
-        $sql = "SELECT sb_id, sb_ip, sb_reason, sb_block_type, sb_datetime, sb_hit_count
-                FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
-                WHERE sb_status = 'active'
-                  AND {$ip_long} BETWEEN sb_start_ip AND sb_end_ip
-                ORDER BY sb_datetime DESC
-                LIMIT 1";
+        // IPv4인 경우 숫자 범위 검색
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $ip_long = sprintf('%u', ip2long($ip));
+            
+            $sql = "SELECT sb_id, sb_ip, sb_reason, sb_block_type, sb_datetime, sb_hit_count
+                    FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                    WHERE sb_status = 'active'
+                      AND {$ip_long} BETWEEN sb_start_ip AND sb_end_ip
+                    ORDER BY sb_datetime DESC
+                    LIMIT 1";
+        }
+        // IPv6인 경우 문자열 매칭 (CIDR 처리는 복잡하므로 정확히 일치하는 것만)
+        else if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $sql = "SELECT sb_id, sb_ip, sb_reason, sb_block_type, sb_datetime, sb_hit_count
+                    FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
+                    WHERE sb_status = 'active'
+                      AND sb_start_ip = 0 AND sb_end_ip = 0
+                      AND sb_ip = '" . sql_escape_string($ip) . "'
+                    ORDER BY sb_datetime DESC
+                    LIMIT 1";
+        }
+        else {
+            return false;
+        }
 
         $result = sql_query($sql, false);
         if ($result && $block = sql_fetch_array($result)) {
@@ -130,28 +146,45 @@ class GK_BlockManager {
     }
 
     /**
-     * IP 주소 정규화 (x/32를 x로 변환)
+     * IP 주소 정규화 (x/32를 x로 변환, IPv4/IPv6 모두 지원)
      */
     public static function normalize_ip($ip) {
         $ip = trim($ip);
 
-        // IPv4 주소만 처리
-        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            // CIDR 형태인지 확인
-            if (strpos($ip, '/') !== false) {
-                list($ip_part, $cidr_part) = explode('/', $ip, 2);
-                if (filter_var($ip_part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && is_numeric($cidr_part)) {
-                    // /32인 경우 단일 IP로 정규화
-                    if ($cidr_part == '32') {
-                        return $ip_part;
-                    }
-                    return $ip;
-                }
-            }
-            return false;
+        // IPv4 주소 처리
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return $ip;
         }
 
-        return $ip;
+        // IPv6 주소 처리
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return $ip;
+        }
+
+        // CIDR 형태인지 확인
+        if (strpos($ip, '/') !== false) {
+            list($ip_part, $cidr_part) = explode('/', $ip, 2);
+            
+            // IPv4 CIDR
+            if (filter_var($ip_part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && is_numeric($cidr_part)) {
+                // /32인 경우 단일 IP로 정규화
+                if ($cidr_part == '32') {
+                    return $ip_part;
+                }
+                return $ip;
+            }
+            
+            // IPv6 CIDR
+            if (filter_var($ip_part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) && is_numeric($cidr_part)) {
+                // /128인 경우 단일 IP로 정규화
+                if ($cidr_part == '128') {
+                    return $ip_part;
+                }
+                return $ip;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -170,13 +203,22 @@ class GK_BlockManager {
             return false;
         }
 
+        // IPv6의 경우 숫자 범위 대신 0을 사용
+        if ($range['type'] === 'ipv6') {
+            $start_ip = 0;
+            $end_ip = 0;
+        } else {
+            $start_ip = $range['start'];
+            $end_ip = $range['end'];
+        }
+
         // 중복 확인 (UNIQUE 제약 조건으로 처리됨)
         $sql = "INSERT IGNORE INTO " . GK_SECURITY_IP_BLOCK_TABLE . "
                 (sb_ip, sb_start_ip, sb_end_ip, sb_reason, sb_block_type, sb_datetime)
                 VALUES (
                     '" . sql_escape_string($normalized_ip) . "',
-                    " . $range['start'] . ",
-                    " . $range['end'] . ",
+                    " . $start_ip . ",
+                    " . $end_ip . ",
                     '" . sql_escape_string($reason) . "',
                     '" . sql_escape_string($block_type) . "',
                     NOW()
@@ -188,8 +230,8 @@ class GK_BlockManager {
         if ($result) {
             // 중복인 경우를 확인하기 위해 해당 범위의 데이터 조회
             $check_sql = "SELECT sb_id FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
-                         WHERE sb_start_ip = " . $range['start'] . "
-                           AND sb_end_ip = " . $range['end'];
+                         WHERE sb_start_ip = " . $start_ip . "
+                           AND sb_end_ip = " . $end_ip;
             $check_result = sql_query($check_sql, false);
 
             if ($check_result && sql_num_rows($check_result) > 0) {
@@ -198,8 +240,8 @@ class GK_BlockManager {
                               SET sb_reason = '" . sql_escape_string($reason) . "',
                                   sb_block_type = '" . sql_escape_string($block_type) . "',
                                   sb_status = 'active'
-                              WHERE sb_start_ip = " . $range['start'] . "
-                                AND sb_end_ip = " . $range['end'];
+                              WHERE sb_start_ip = " . $start_ip . "
+                                AND sb_end_ip = " . $end_ip;
 
                 $result = sql_query($update_sql, false);
             }
@@ -242,9 +284,18 @@ class GK_BlockManager {
                 return false;
             }
 
+            // IPv6의 경우 숫자 범위 대신 0을 사용
+            if ($range['type'] === 'ipv6') {
+                $start_ip = 0;
+                $end_ip = 0;
+            } else {
+                $start_ip = $range['start'];
+                $end_ip = $range['end'];
+            }
+
             $sql = "DELETE FROM " . GK_SECURITY_IP_BLOCK_TABLE . "
-                    WHERE sb_start_ip = " . $range['start'] . "
-                      AND sb_end_ip = " . $range['end'];
+                    WHERE sb_start_ip = " . $start_ip . "
+                      AND sb_end_ip = " . $end_ip;
 
             $result = sql_query($sql, false);
         }
@@ -393,6 +444,12 @@ class GK_BlockManager {
             차단 해제를 원하시면 관리자에게 문의해주세요.
         </div>
     </div>
+    
+    <script>
+        setTimeout(function() {
+            history.back();
+        }, 2000);
+    </script>
 </body>
 </html>
         <?php

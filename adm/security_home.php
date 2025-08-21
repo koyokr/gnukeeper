@@ -198,9 +198,16 @@ function get_all_security_settings() {
         $dangerous_extensions = array('php', 'php3', 'phtml', 'asp', 'jsp', 'exe', 'sh', 'pl');
         $upload_extensions_sql = "SELECT cf_upload_extension FROM ".G5_TABLE_PREFIX."config WHERE cf_id = 1";
         $upload_extensions_result = sql_fetch($upload_extensions_sql);
-        $allowed_extensions = explode('|', strtolower($upload_extensions_result['cf_upload_extension'] ?? ''));
-        $has_dangerous_ext = count(array_intersect($dangerous_extensions, $allowed_extensions)) > 0;
-        $settings['extension_policy_safe'] = !$has_dangerous_ext;
+        $extension_setting = $upload_extensions_result['cf_upload_extension'] ?? '';
+        
+        // 설정이 비어있으면 위험으로 판단
+        if (empty($extension_setting)) {
+            $settings['extension_policy_safe'] = false;
+        } else {
+            $allowed_extensions = explode('|', strtolower($extension_setting));
+            $has_dangerous_ext = count(array_intersect($dangerous_extensions, $allowed_extensions)) > 0;
+            $settings['extension_policy_safe'] = !$has_dangerous_ext;
+        }
         
         // 7. 업로드 용량 정책 - 게시판별 업로드 용량 확인
         $unsafe_upload_sql = "SELECT COUNT(*) as count FROM ".G5_TABLE_PREFIX."board WHERE bo_upload_size > 20971520 OR bo_upload_size = 0";
@@ -222,15 +229,15 @@ function get_all_security_settings() {
         $settings['spam_content_enabled'] = ($spam_stats['spam_content_enabled'] ?? $merged_config['spam_content_enabled'] ?? '0') == '1';
         
         // 9. 로그인 위협 탐지
-        $settings['login_threat_enabled'] = ($spam_stats['login_threat_enabled'] ?? $merged_config['login_threat_enabled'] ?? '1') == '1';
+        $settings['login_threat_enabled'] = ($spam_stats['login_threat_enabled'] ?? $merged_config['login_threat_enabled'] ?? '0') == '1';
         
         // 10. 악성 봇 탐지
-        $settings['bot_detection_enabled'] = ($spam_stats['user_agent_enabled'] ?? $merged_config['user_agent_enabled'] ?? '1') == '1';
+        $settings['bot_detection_enabled'] = ($spam_stats['user_agent_enabled'] ?? $merged_config['user_agent_enabled'] ?? '0') == '1';
         
         // 11. 비정상 행동 탐지
         $settings['behavior_detection_enabled'] = (
             ($spam_stats['behavior_404_enabled'] ?? $merged_config['behavior_404_enabled'] ?? '0') == '1' || 
-            ($spam_stats['behavior_referer_enabled'] ?? $merged_config['behavior_referer_enabled'] ?? '1') == '1'
+            ($spam_stats['behavior_referer_enabled'] ?? $merged_config['behavior_referer_enabled'] ?? '0') == '1'
         );
         
         // 12. 다중 사용자 탐지
@@ -241,7 +248,8 @@ function get_all_security_settings() {
         
     } catch (Exception $e) {
         error_log('Security settings collection error: ' . $e->getMessage());
-        // 에러 발생 시 기본값으로 설정
+        // 에러 발생 시 기본값으로 설정 (실제 설정값을 확인하여 반영)
+        $actual_config = GK_Common::get_config();
         $settings = array_merge($settings, array(
             'access_control_enabled' => false,
             'foreign_ip_enabled' => false,
@@ -250,11 +258,14 @@ function get_all_security_settings() {
             'admin_users_safe' => false,
             'extension_policy_safe' => false,
             'upload_size_policy_safe' => false,
-            'spam_content_enabled' => false,
-            'login_threat_enabled' => false,
-            'bot_detection_enabled' => false,
-            'behavior_detection_enabled' => false,
-            'multiuser_detection_enabled' => false
+            'spam_content_enabled' => ($actual_config['spam_content_enabled'] ?? '0') == '1',
+            'login_threat_enabled' => ($actual_config['login_threat_enabled'] ?? '0') == '1',
+            'bot_detection_enabled' => ($actual_config['user_agent_enabled'] ?? '0') == '1',
+            'behavior_detection_enabled' => (
+                ($actual_config['behavior_404_enabled'] ?? '0') == '1' || 
+                ($actual_config['behavior_referer_enabled'] ?? '0') == '1'
+            ),
+            'multiuser_detection_enabled' => ($actual_config['multiuser_login_enabled'] ?? '0') == '1'
         ));
     }
     
