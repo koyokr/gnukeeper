@@ -8,6 +8,12 @@ auth_check_menu($auth, $sub_menu, 'r');
 if (isset($_POST['action'])) {
     header('Content-Type: application/json; charset=utf-8');
 
+    // AJAX 요청에서도 관리자 권한 재확인
+    if (!isset($member) || $member['mb_level'] < 10) {
+        echo json_encode(['success' => false, 'message' => '관리자 권한이 필요합니다.']);
+        exit;
+    }
+
     $action = $_POST['action'];
     $bo_table = isset($_POST['bo_table']) ? $_POST['bo_table'] : '';
 

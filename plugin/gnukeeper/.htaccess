@@ -1,0 +1,13 @@
+Options -Indexes
+
+# 직접 접근 차단
+<Files "*">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# bootstrap.php만 허용 (다른 PHP 파일에서 require 할 수 있도록)
+<Files "bootstrap.php">
+    Order Allow,Deny
+    Allow from all
+</Files>

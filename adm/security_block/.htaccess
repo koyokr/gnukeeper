@@ -1,0 +1,24 @@
+Options -Indexes
+DirectoryIndex index.php
+
+# 직접 디렉토리 접근 차단
+<Files "*">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+# PHP 파일들은 index.php와 api.php만 허용
+<Files "*.php">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "index.php">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+<Files "api.php">
+    Order Allow,Deny
+    Allow from all
+</Files>

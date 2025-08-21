@@ -1,5 +1,9 @@
 <?php
+$sub_menu = '950300';
 require_once './_common.php';
+
+// 관리자 권한 체크
+auth_check_menu($auth, $sub_menu, 'r');
 
 $g5['title'] = '차단 관리';
 include_once(G5_ADMIN_PATH.'/admin.head.php');
