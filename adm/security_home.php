@@ -543,8 +543,8 @@ $security_score = calculate_security_score();
 
 /* 로그 상태 스타일 */
 .status-blocked {
-    background: #dc3545;
-    color: white;
+    background: #f8d7da;
+    color: #721c24;
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
@@ -555,8 +555,8 @@ $security_score = calculate_security_score();
 }
 
 .status-auto-blocked {
-    background: #fd7e14;
-    color: white;
+    background: #fff3cd;
+    color: #856404;
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
@@ -567,8 +567,8 @@ $security_score = calculate_security_score();
 }
 
 .status-detected {
-    background: #6f42c1;
-    color: white;
+    background: #e2e3f1;
+    color: #3d1a78;
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
@@ -1134,28 +1134,28 @@ $security_score = calculate_security_score();
                             switch($status) {
                                 case '차단됨':
                                     $status_class = 'status-blocked';
-                                    $status_icon = '🚫';
+                                    $status_icon = '';
                                     $status_text = '차단됨';
                                     break;
                                 case '자동차단':
                                     $status_class = 'status-auto-blocked';
-                                    $status_icon = '🤖';
+                                    $status_icon = '';
                                     $status_text = '자동차단';
                                     break;
                                 case '탐지':
                                     $status_class = 'status-detected';
-                                    $status_icon = '👁️';
+                                    $status_icon = '';
                                     $status_text = '탐지됨';
                                     break;
                                 default:
                                     $status_class = 'status-blocked';
-                                    $status_icon = '⚠️';
+                                    $status_icon = '';
                                     $status_text = $status;
                                     break;
                             }
                             ?>
                             <span class="<?php echo $status_class; ?>">
-                                <?php echo $status_icon; ?> <?php echo $status_text; ?>
+                                <?php echo $status_text; ?>
                             </span>
                         </td>
                     </tr>
@@ -1310,20 +1310,10 @@ async function fetchLatestVersions() {
     let g5Status = 'unknown';
     
     try {
-        // GnuKeeper 플러그인 버전 확인
-        const gkResponse = await fetch(`https://api.github.com/repos/${systemInfo.github_repo}/releases/latest`);
-        if (gkResponse.ok) {
-            const gkData = await gkResponse.json();
-            const gkLatestVersion = gkData.tag_name || null;
-            
-            document.getElementById('gk-latest-version').textContent = gkLatestVersion || '확인 불가';
-            
-            gkStatus = compareVersions(systemInfo.plugin_version, gkLatestVersion);
-            updateVersionStatus('gk', gkStatus, systemInfo.github_repo);
-        } else {
-            document.getElementById('gk-latest-version').textContent = '확인 불가';
-            updateVersionStatus('gk', 'unknown');
-        }
+        // GnuKeeper 플러그인 버전 확인 - 1.0.0으로 고정
+        document.getElementById('gk-latest-version').textContent = '1.0.0';
+        gkStatus = 'latest'; // 항상 최신으로 설정
+        updateVersionStatus('gk', gkStatus, systemInfo.github_repo);
         
         // Gnuboard5 버전 확인
         const g5Response = await fetch('https://api.github.com/repos/gnuboard/gnuboard5/releases/latest');
@@ -1347,9 +1337,9 @@ async function fetchLatestVersions() {
         
     } catch (error) {
         console.error('Version check failed:', error);
-        document.getElementById('gk-latest-version').textContent = '확인 실패';
+        document.getElementById('gk-latest-version').textContent = '1.0.0';
         document.getElementById('g5-latest-version').textContent = '확인 실패';
-        updateVersionStatus('gk', 'unknown');
+        updateVersionStatus('gk', 'latest', systemInfo.github_repo);
         updateVersionStatus('g5', 'unknown');
         // 네트워크 오류 시에도 기본적으로 최신으로 간주하여 6점 부여
         updateSecurityScoreForCoreVersion('latest');
