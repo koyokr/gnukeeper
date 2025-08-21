@@ -194,18 +194,36 @@ function get_all_security_settings() {
         $admin_users_result = sql_fetch($admin_users_sql);
         $settings['admin_users_safe'] = ($admin_users_result['count'] <= 3); // 3명 이하면 안전
         
-        // 6. 확장자 정책 관리 - 위험한 확장자 허용 여부 확인
+        // 6. 확장자 정책 관리 - 위험한 확장자 허용 여부 확인 (정책관리와 동일한 로직)
         $dangerous_extensions = array('php', 'php3', 'phtml', 'asp', 'jsp', 'exe', 'sh', 'pl');
-        $upload_extensions_sql = "SELECT cf_upload_extension FROM ".G5_TABLE_PREFIX."config WHERE cf_id = 1";
-        $upload_extensions_result = sql_fetch($upload_extensions_sql);
-        $extension_setting = $upload_extensions_result['cf_upload_extension'] ?? '';
+        
+        // 모든 업로드 관련 확장자 필드 확인 (정책관리 페이지와 동일)
+        $extension_sql = "SELECT cf_image_extension, cf_flash_extension, cf_movie_extension FROM ".G5_TABLE_PREFIX."config WHERE cf_id = 1";
+        $extension_result = sql_fetch($extension_sql);
+        
+        $all_extensions = array();
+        $extension_fields = array(
+            'cf_image_extension' => $extension_result['cf_image_extension'] ?? '',
+            'cf_flash_extension' => $extension_result['cf_flash_extension'] ?? '',
+            'cf_movie_extension' => $extension_result['cf_movie_extension'] ?? ''
+        );
+        
+        // 각 필드에서 확장자 추출
+        foreach ($extension_fields as $field_value) {
+            if (!empty($field_value)) {
+                $exts = explode('|', strtolower(trim($field_value)));
+                $all_extensions = array_merge($all_extensions, $exts);
+            }
+        }
+        
+        // 중복 제거 및 빈 값 제거
+        $current_extensions = array_unique(array_filter(array_map('trim', $all_extensions)));
         
         // 설정이 비어있으면 위험으로 판단
-        if (empty($extension_setting)) {
+        if (empty($current_extensions)) {
             $settings['extension_policy_safe'] = false;
         } else {
-            $allowed_extensions = explode('|', strtolower($extension_setting));
-            $has_dangerous_ext = count(array_intersect($dangerous_extensions, $allowed_extensions)) > 0;
+            $has_dangerous_ext = count(array_intersect($dangerous_extensions, $current_extensions)) > 0;
             $settings['extension_policy_safe'] = !$has_dangerous_ext;
         }
         
