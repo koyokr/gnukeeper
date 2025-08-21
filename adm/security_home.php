@@ -150,6 +150,14 @@ function get_all_security_settings() {
         $settings['debug_config'] = $merged_config;
         $settings['debug_block_stats'] = null;
         $settings['debug_spam_stats'] = null;
+        $settings['debug_detection_settings'] = array(
+            'spam_content_enabled' => $merged_config['spam_content_enabled'] ?? 'not_set',
+            'login_threat_enabled' => $merged_config['login_threat_enabled'] ?? 'not_set',
+            'user_agent_enabled' => $merged_config['user_agent_enabled'] ?? 'not_set',
+            'behavior_404_enabled' => $merged_config['behavior_404_enabled'] ?? 'not_set',
+            'behavior_referer_enabled' => $merged_config['behavior_referer_enabled'] ?? 'not_set',
+            'multiuser_login_enabled' => $merged_config['multiuser_login_enabled'] ?? 'not_set'
+        );
         
         // BlockAdmin 통계 디버그
         if (isset($blockStats)) {
@@ -243,23 +251,29 @@ function get_all_security_settings() {
             // SpamAdmin 사용 실패 시 무시
         }
         
-        // 8. 스팸 콘텐츠 탐지
-        $settings['spam_content_enabled'] = ($spam_stats['spam_content_enabled'] ?? $merged_config['spam_content_enabled'] ?? '0') == '1';
+        // 8. 스팸 콘텐츠 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
+        $spam_content_setting = $merged_config['spam_content_enabled'] ?? '0';
+        $settings['spam_content_enabled'] = ($spam_content_setting == '1');
         
-        // 9. 로그인 위협 탐지
-        $settings['login_threat_enabled'] = ($spam_stats['login_threat_enabled'] ?? $merged_config['login_threat_enabled'] ?? '0') == '1';
+        // 9. 로그인 위협 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
+        $login_threat_setting = $merged_config['login_threat_enabled'] ?? '0';
+        $settings['login_threat_enabled'] = ($login_threat_setting == '1');
         
-        // 10. 악성 봇 탐지
-        $settings['bot_detection_enabled'] = ($spam_stats['user_agent_enabled'] ?? $merged_config['user_agent_enabled'] ?? '0') == '1';
+        // 10. 악성 봇 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
+        $bot_detection_setting = $merged_config['user_agent_enabled'] ?? '0';
+        $settings['bot_detection_enabled'] = ($bot_detection_setting == '1');
         
-        // 11. 비정상 행동 탐지
+        // 11. 비정상 행동 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
+        $behavior_404_setting = $merged_config['behavior_404_enabled'] ?? '0';
+        $behavior_referer_setting = $merged_config['behavior_referer_enabled'] ?? '0';
         $settings['behavior_detection_enabled'] = (
-            ($spam_stats['behavior_404_enabled'] ?? $merged_config['behavior_404_enabled'] ?? '0') == '1' || 
-            ($spam_stats['behavior_referer_enabled'] ?? $merged_config['behavior_referer_enabled'] ?? '0') == '1'
+            ($behavior_404_setting == '1') || 
+            ($behavior_referer_setting == '1')
         );
         
-        // 12. 다중 사용자 탐지
-        $settings['multiuser_detection_enabled'] = ($spam_stats['multiuser_login_enabled'] ?? $merged_config['multiuser_login_enabled'] ?? '0') == '1';
+        // 12. 다중 사용자 탐지 - 설정값 우선순위: 데이터베이스 직접 조회 > merged_config
+        $multiuser_setting = $merged_config['multiuser_login_enabled'] ?? '0';
+        $settings['multiuser_detection_enabled'] = ($multiuser_setting == '1');
         
         // 13. Core 버전 최신 여부 - 그누보드5 버전 확인 (클라이언트에서 확인)
         $settings['core_version_latest'] = null; // JavaScript에서 확인
