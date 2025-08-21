@@ -66,7 +66,7 @@ function get_system_info() {
     // 현재 버전 정보 (JavaScript가 사용할 수 있도록)
     $gk_current_version = defined('GK_VERSION') ? GK_VERSION : '0.0.0';
     $g5_current_version = defined('G5_GNUBOARD_VER') ? G5_GNUBOARD_VER : '0.0.0';
-    $github_repo = defined('GK_GITHUB_REPO') ? GK_GITHUB_REPO : 'gnsehfvlr/gnuboard5_security';
+    $github_repo = defined('GK_GITHUB_REPO') ? GK_GITHUB_REPO : 'koyokr/gnukeeper';
 
     $info['plugin_status'] = '정상 작동중';
     $info['plugin_version'] = $gk_current_version;
